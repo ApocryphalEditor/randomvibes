@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Feed Henry :3 (EPIC Laser Countdown!)</title>
+    <style>
+        /* --- Previous styles mostly unchanged --- */
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; touch-action: none; -webkit-tap-highlight-color: transparent; }
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Courier New', Courier, monospace; background-color: #e0f0ff; color: #444; }
+        #game-container { position: relative; width: 100%; height: 100%; cursor: default; z-index: 1; }
+        .quilt-bg-container { /* ... quilt styles ... */ position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: 0; pointer-events: none; }
+        .quilt-patch { position: absolute; font-size: 80px; opacity: 0.15; will-change: transform; color: #b0c4de; }
+        .quilt-patch.p1 { animation: scroll-bg 30s linear infinite; top: 10%; left: -100px; } .quilt-patch.p2 { animation: scroll-bg 45s linear infinite reverse; top: 40%; left: -100px; font-size: 120px; opacity: 0.1; color: #add8e6;} .quilt-patch.p3 { animation: scroll-bg 40s linear infinite; top: 70%; left: -100px; font-size: 90px; opacity: 0.12; color: #d8bfd8;} .quilt-patch.p4 { animation: scroll-bg 35s linear infinite reverse; top: 5%; left: -100px; font-size: 60px; opacity: 0.18; transform: rotate(15deg); color: #98fb98;} .quilt-patch.p5 { animation: scroll-bg 50s linear infinite; top: 85%; left: -100px; font-size: 100px; opacity: 0.08; color: #ffe4e1;}
+        @keyframes scroll-bg { from { transform: translateX(0); } to { transform: translateX(calc(100vw + 200px)); } }
+        #henry-cat { /* ... henry styles ... */ position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 10; }
+        #henry-visual { font-size: 55px; font-weight: bold; transition: transform 0.1s ease-out; cursor: default; color: #5a4d41; }
+        #henry-visual.pettable { cursor: pointer; animation: gentle-bounce 1.5s infinite ease-in-out; } #henry-visual.being-petted { transform: scale(1.1); }
+        #fullness-meter-container { /* ... meter styles ... */ width: 100px; height: 15px; border: 2px solid #776655; border-radius: 8px; background-color: #f5f5dc; margin: 5px auto 10px auto; overflow: hidden; }
+        #fullness-meter-fill { width: 0%; height: 100%; background-color: #ff6347; transition: width 0.5s ease-in-out; border-radius: 5px 0 0 5px; }
+        #fullness-meter-fill.full { border-radius: 5px; background-color: #ff4500; }
+        #thought-cloud { /* ... cloud styles ... */ position: absolute; bottom: calc(100% + 15px); left: 50%; transform: translateX(-50%); background-color: rgba(255, 255, 255, 0.95); padding: 8px 15px; border-radius: 15px 15px 15px 0; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); min-width: 80px; max-width: 150px; text-align: center; font-size: 14px; opacity: 0; transition: opacity 0.5s ease-in-out; white-space: nowrap; color: #333; z-index: 11; }
+        #thought-cloud.visible { opacity: 1; }
+        .ginger-head { /* ... head styles ... */ position: absolute; font-size: 40px; cursor: pointer; z-index: 5; will-change: transform; color: #e07a5f; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); transition: transform 0.1s ease-out, opacity 0.1s ease-out; }
+        .heart-explosion { /* ... heart styles ... */ position: absolute; font-size: 30px; z-index: 20; animation: explode 0.6s ease-out forwards; pointer-events: none; will-change: transform, opacity; }
+        .falling-thread { /* ... thread styles ... */ position: absolute; width: 3px; height: 40px; border-radius: 2px; z-index: 19; pointer-events: none; will-change: transform, opacity; animation: fall 1.5s linear forwards; }
+        @keyframes float-variation-1 { /* ... float variations ... */ 0%{transform:translate(0,0) rotate(-5deg)}50%{transform:translate(5px,-15px) rotate(0)}100%{transform:translate(0,0) rotate(5deg)} } @keyframes float-variation-2 { 0%{transform:translate(0,0) rotate(3deg)}50%{transform:translate(-5px,-10px) rotate(-3deg)}100%{transform:translate(0,0) rotate(3deg)} } @keyframes float-variation-3 { 0%{transform:translate(0,0) rotate(0)}33%{transform:translate(-8px,-8px) rotate(8deg)}66%{transform:translate(8px,-12px) rotate(-8deg)}100%{transform:translate(0,0) rotate(0)} }
+        @keyframes explode { /* ... explode animation ... */ 0%{transform:scale(.5);opacity:1}50%{transform:scale(1.2);opacity:.8}100%{transform:scale(1.5) translateY(-20px);opacity:0} }
+        @keyframes fall { /* ... fall animation ... */ 0%{transform:translateY(0) translateX(0) rotate(0);opacity:.9}100%{transform:translateY(200px) translateX(var(--drift,0px)) rotate(var(--spin,0deg));opacity:0} }
+        @keyframes gentle-bounce { /* ... bounce animation ... */ 0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-5px) scale(1.05)} }
+        #laser-pointer { /* ... laser pointer styles ... */ position: absolute; width: 15px; height: 15px; background-color: red; border-radius: 50%; border: 2px solid darkred; box-shadow: 0 0 10px 5px rgba(255, 0, 0, 0.7); z-index: 40; pointer-events: none; transform: translate(-50%, -50%); display: none; }
+        #laser-pointer.active { display: block; }
+        .ginger-head.chasing { animation: none !important; transition: transform 0.1s linear; }
+        #big-explosion { /* ... big explosion styles ... */ position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 200px; color: #ff1493; text-shadow: 0 0 20px white; z-index: 100; pointer-events: none; opacity: 0; animation: big-boom 1s ease-out forwards; will-change: transform, opacity; }
+        @keyframes big-boom { 0%{transform:translate(-50%,-50%) scale(0);opacity:1}50%{transform:translate(-50%,-50%) scale(1.5);opacity:.9}100%{transform:translate(-50%,-50%) scale(1.2);opacity:0} }
+
+        /* --- UPDATED/NEW LASER COUNTDOWN & TITLE STYLES --- */
+        #laser-countdown {
+            position: absolute;
+            /* Start reasonably large, scale up massively */
+            font-size: 10vw; /* Responsive base size */
+            font-weight: bold;
+            color: rgba(255, 0, 0, 0.8); /* More opaque */
+            /* Remove background circle for cleaner zoom */
+            /* background-color: rgba(255, 255, 255, 0.5); */
+            /* padding: 10px 20px; */
+            /* border-radius: 50%; */
+            text-shadow: 0 0 15px white, 0 0 25px rgba(255,100,100,0.5); /* Enhance visibility */
+            z-index: 50;
+            pointer-events: none;
+            opacity: 0; /* Start invisible */
+            /* Don't transition opacity here, use animation */
+            transform: translate(-50%, -50%) scale(0.5); /* Center and start small */
+            will-change: transform, opacity; /* Performance hint */
+        }
+        #laser-countdown.visible {
+            /* We don't just make it visible, we trigger the animation */
+             animation: countdown-zoom 0.85s cubic-bezier(0.1, 0.7, 0.3, 1) forwards; /* Faster than 1 sec */
+        }
+
+        @keyframes countdown-zoom {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0.5;
+            }
+            70% {
+                 /* Zoom grows very large quickly */
+                transform: translate(-50%, -50%) scale(8); /* Adjust scale factor as needed */
+                opacity: 1;
+            }
+            100% {
+                 /* Slightly shrink/fade at the very end before disappearing */
+                transform: translate(-50%, -50%) scale(7);
+                opacity: 0;
+            }
+        }
+
+        #laser-title {
+            position: absolute;
+            top: 40%; /* Position vertically */
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 6vw; /* Large, responsive text */
+            font-weight: bold;
+            color: #ff4500; /* OrangeRed */
+            text-align: center;
+            text-shadow: 2px 2px 0 #fff, 4px 4px 0 rgba(0,0,0,0.2); /* Simple 3D effect */
+            z-index: 45; /* Above laser, below countdown */
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out; /* Fade in/out */
+            display: none; /* Use display none/block to prevent layout shifts */
+        }
+
+        #laser-title.visible {
+             display: block; /* Make it take up space */
+             opacity: 1;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="quilt-bg-container"> <!-- Quilt patches... -->
+        <div class="quilt-patch p1">▓▒░▓▒░</div> <div class="quilt-patch p2">░▒▓░▒▓</div>
+        <div class="quilt-patch p3">▓▓▒▒░░</div> <div class="quilt-patch p4">▒▒▓▓░░</div>
+        <div class="quilt-patch p5">░░▒▒▓▓</div>
+    </div>
+
+    <div id="game-container">
+        <div id="henry-cat"> <!-- Henry, meter, cloud... -->
+             <div id="thought-cloud">...</div>
+            <div id="fullness-meter-container"> <div id="fullness-meter-fill"></div> </div>
+            <div id="henry-visual">:3</div>
+        </div>
+        <!-- Heads added here -->
+        <div id="laser-countdown"></div>
+        <div id="laser-pointer"></div>
+        <div id="laser-title">LASER POINTER<br/>GAME!</div> <!-- Added Title -->
+        <!-- Big explosion added temporarily here -->
+    </div>
+
+    <script>
+        // --- DOM Elements (+ laserTitle) ---
+        const gameContainer = document.getElementById('game-container');
+        const henryCat = document.getElementById('henry-cat');
+        const henryVisual = document.getElementById('henry-visual');
+        const fullnessMeterFill = document.getElementById('fullness-meter-fill');
+        const thoughtCloud = document.getElementById('thought-cloud');
+        const laserCountdown = document.getElementById('laser-countdown');
+        const laserPointer = document.getElementById('laser-pointer');
+        const laserTitle = document.getElementById('laser-title'); // Get the title element
+
+        // --- State Variables --- (Unchanged)
+        let fullness = 0; let isFull = false; const maxHeads = 10; let activeHeads = [];
+        let isInLaserMode = false; let laserTimeoutId = null; let countdownValue = 3;
+        let laserPosition = { x: 0, y: 0 }; let laserAnimationId = null;
+        let currentPointerId = null;
+
+        // --- Config --- (Unchanged)
+        const fullnessIncrease = 12; const fullnessDecreaseRate = 0.25;
+        const headSpawnIntervalMs = 1300; const thoughtIntervalMs = 4500;
+        const threadChance = 0.4; const laserHoldTime = 3000;
+        const laserCatchDistance = 25; const headChaseSpeed = 2.5;
+
+        // --- Arrays --- (Unchanged)
+        const catThoughts = [ "Need more yarn :3", "Quilting time!", "zzzz...", "Sunbeam nap :3", "Is that tuna??", "Head scratch pls?", "Bird watching >:3", "Nap time.", "More food!", "Pet me now :3", "Soft blanket~", "Empty box? :o", "Plotting...", "*kneads paws*", "Zoomies incoming?" ];
+        const pettingThoughts = [ "Purrrr...", "Mrow :3", "*happy wiggle*", "Yesss..." ];
+        const fullThoughts = ["So full >:3", "Ready for pets!", "Content :3", "*stretch*", "Top tier nap incoming"];
+        const threadColors = ["#DC143C", "#FF8C00", "#FFD700", "#32CD32", "#1E90FF", "#9370DB", "#FF69B4"];
+
+        // --- Game Interval IDs --- (Unchanged)
+        let spawnIntervalId = null; let depletionIntervalId = null; let thoughtIntervalId = null;
+
+        // --- Functions ---
+
+        // updateFullnessVisual, setHenryState, createFallingThread, createHeartExplosion, popHead,
+        // spawnHead, depleteFullness, petHenry, updateThoughtCloud (Mostly Unchanged)
+         function updateFullnessVisual() { /* ... */ fullness = Math.max(0, Math.min(100, fullness)); fullnessMeterFill.style.width = `${fullness}%`; fullnessMeterFill.classList.toggle('full', fullness >= 100); const previouslyFull = isFull; isFull = (fullness >= 100); if (isFull && !previouslyFull && !isInLaserMode) { setHenryState('full'); } else if (!isFull && previouslyFull && !isInLaserMode) { setHenryState('hungry'); } }
+         function setHenryState(state) { if (isInLaserMode) return; if (state === 'full') { henryVisual.textContent = '>:3'; henryVisual.classList.add('pettable'); updateThoughtCloud(fullThoughts[Math.floor(Math.random() * fullThoughts.length)]); } else { henryVisual.textContent = ':3'; henryVisual.classList.remove('pettable'); } }
+         function createFallingThread(x, y) { /* ... */ const thread = document.createElement('div'); thread.classList.add('falling-thread'); const color = threadColors[Math.floor(Math.random() * threadColors.length)]; thread.style.backgroundColor = color; thread.style.left = `${x + (Math.random() * 30 - 15)}px`; thread.style.top = `${y - 20}px`; const drift = (Math.random() * 60 - 30); const spin = (Math.random() * 90 - 45); thread.style.setProperty('--drift', `${drift}px`); thread.style.setProperty('--spin', `${spin}deg`); gameContainer.appendChild(thread); setTimeout(() => thread.remove(), 1500); }
+         function createHeartExplosion(x, y) { /* ... */ const explosion = document.createElement('div'); explosion.classList.add('heart-explosion'); explosion.textContent = Math.random() < 0.5 ? '❤️' : '💖'; explosion.style.left = `${x - 15}px`; explosion.style.top = `${y - 15}px`; explosion.style.transform = `rotate(${Math.random() * 60 - 30}deg)`; gameContainer.appendChild(explosion); setTimeout(() => explosion.remove(), 600); if (Math.random() < threadChance) { const threadCount = Math.floor(Math.random() * 3) + 1; for (let i = 0; i < threadCount; i++) { createFallingThread(x, y); } } }
+         function popHead(event) { if (isInLaserMode) return; const headElement = event.target; headElement.style.transform = 'scale(1.3)'; headElement.style.opacity = '0'; headElement.style.pointerEvents = 'none'; const popX = event.clientX; const popY = event.clientY; setTimeout(() => { createHeartExplosion(popX, popY); if (!isFull) { fullness += fullnessIncrease; updateFullnessVisual(); } headElement.remove(); activeHeads = activeHeads.filter(h => h.element !== headElement); }, 50); event.stopPropagation(); }
+         function spawnHead() { if (isInLaserMode || activeHeads.length >= maxHeads) { return; } const head = document.createElement('div'); head.classList.add('ginger-head'); head.textContent = '◉ω◉'; const gameRect = gameContainer.getBoundingClientRect(); const x = Math.random() * (gameRect.width - 60) + 30; const y = Math.random() * (gameRect.height - 180) + 20; head.style.left = `${x}px`; head.style.top = `${y}px`; const variation = Math.floor(Math.random() * 3) + 1; const duration = Math.random() * 4 + 6; const delay = Math.random() * -duration; head.style.animation = `float-variation-${variation} ${duration}s ${delay}s infinite ease-in-out alternate`; head.addEventListener('pointerdown', popHead); gameContainer.appendChild(head); activeHeads.push({ element: head, x: x, y: y }); }
+         function depleteFullness() { if (isInLaserMode || isFull || fullness <= 0) return; fullness -= fullnessDecreaseRate; updateFullnessVisual(); }
+         function petHenry(event) { if (isInLaserMode || !isFull) return; createHeartExplosion(event.clientX, event.clientY); henryVisual.classList.add('being-petted'); setTimeout(() => { henryVisual.classList.remove('being-petted'); }, 150); const thought = pettingThoughts[Math.floor(Math.random() * pettingThoughts.length)]; updateThoughtCloud(thought); setTimeout(() => { if(isFull && !isInLaserMode) { updateThoughtCloud(fullThoughts[Math.floor(Math.random() * fullThoughts.length)]); } }, thoughtIntervalMs / 2); event.stopPropagation(); }
+         function updateThoughtCloud(forceThought = null) { if (isInLaserMode) { thoughtCloud.textContent = "LASER! >:O"; if (!thoughtCloud.classList.contains('visible')) { thoughtCloud.classList.add('visible'); } return; } let thought; if (forceThought) { thought = forceThought; } else if (isFull) { thought = fullThoughts[Math.floor(Math.random() * fullThoughts.length)]; } else { thought = catThoughts[Math.floor(Math.random() * catThoughts.length)]; if (fullness < 30 && Math.random() < 0.5) { thought = "Food? :3"; } } if (thoughtCloud.classList.contains('visible') && thoughtCloud.textContent !== thought) { thoughtCloud.classList.remove('visible'); setTimeout(() => { thoughtCloud.textContent = thought; thoughtCloud.classList.add('visible'); }, 500); } else if (!thoughtCloud.classList.contains('visible')) { thoughtCloud.textContent = thought; thoughtCloud.classList.add('visible'); } }
+
+
+        // --- UPDATED LASER FUNCTIONS ---
+
+        function startLaserCountdown(x, y) {
+            if (laserTimeoutId || isInLaserMode) return;
+
+            countdownValue = 3;
+            laserPosition.x = x; // Store initial position for first number
+            laserPosition.y = y;
+
+            function showNextNumber() {
+                if (countdownValue <= 0) { // Should be handled by timeout, but safe check
+                    startLaserMode();
+                    return;
+                }
+
+                // Position and set text *before* adding class to animate
+                laserCountdown.style.left = `${laserPosition.x}px`;
+                laserCountdown.style.top = `${laserPosition.y}px`;
+                laserCountdown.textContent = countdownValue;
+
+                // Remove class briefly if re-triggering animation for same element instance
+                laserCountdown.classList.remove('visible');
+                 // Force reflow to ensure animation restarts - crucial step!
+                 void laserCountdown.offsetWidth;
+                laserCountdown.classList.add('visible'); // Trigger the zoom animation
+
+                countdownValue--;
+
+                if (countdownValue > 0) {
+                    laserTimeoutId = setTimeout(showNextNumber, 1000); // Schedule next number
+                } else {
+                    // Last number shown, wait slightly less than animation duration before starting game
+                    laserTimeoutId = setTimeout(startLaserMode, 850); // Match animation duration
+                }
+            }
+
+            showNextNumber(); // Start the sequence
+        }
+
+        function cancelLaserCountdown() {
+            if (laserTimeoutId) {
+                clearTimeout(laserTimeoutId);
+                laserTimeoutId = null;
+            }
+            // Remove the animation class to stop/hide it
+            laserCountdown.classList.remove('visible');
+            currentPointerId = null;
+        }
+
+        function startLaserMode() {
+            // Ensure countdown visual is gone
+            cancelLaserCountdown();
+
+            if (isInLaserMode || activeHeads.length === 0) {
+                resumeGameLogic(); // Make sure normal game resumes if laser start fails
+                return;
+            }
+            console.log("Starting Laser Mode!");
+            isInLaserMode = true;
+            pauseGameLogic();
+            updateThoughtCloud();
+
+            // **Show the Laser Title**
+            laserTitle.classList.add('visible');
+
+            // Activate laser pointer visual slightly after title appears
+            setTimeout(() => {
+                laserPointer.classList.add('active');
+                laserPointer.style.left = `${laserPosition.x}px`;
+                laserPointer.style.top = `${laserPosition.y}px`;
+            }, 150); // Small delay for title visibility
+
+            activeHeads.forEach(headData => {
+                headData.element.classList.add('chasing');
+                 const rect = headData.element.getBoundingClientRect();
+                 headData.x = rect.left + rect.width / 2;
+                 headData.y = rect.top + rect.height / 2;
+            });
+
+            laserAnimationId = requestAnimationFrame(laserUpdateLoop);
+        }
+
+         function laserUpdateLoop() { /* ... (same as before) ... */
+             if (!isInLaserMode) return; let caught = false;
+             activeHeads.forEach(headData => {
+                 const headEl = headData.element; const dx = laserPosition.x - headData.x; const dy = laserPosition.y - headData.y; const distance = Math.sqrt(dx * dx + dy * dy);
+                 if (distance < laserCatchDistance) { caught = true; return; }
+                 if (distance > 1) { const moveX = (dx / distance) * headChaseSpeed; const moveY = (dy / distance) * headChaseSpeed; headData.x += moveX; headData.y += moveY; headEl.style.left = `${headData.x - headEl.offsetWidth / 2}px`; headEl.style.top = `${headData.y - headEl.offsetHeight / 2}px`; }
+             });
+             if (caught) { endLaserMode(); } else { laserAnimationId = requestAnimationFrame(laserUpdateLoop); }
+         }
+
+        function endLaserMode() {
+            if (!isInLaserMode) return;
+            console.log("Ending Laser Mode!");
+            isInLaserMode = false;
+            currentPointerId = null;
+
+            if (laserAnimationId) { cancelAnimationFrame(laserAnimationId); laserAnimationId = null; }
+
+            // **Hide the Laser Title**
+            laserTitle.classList.remove('visible');
+
+            laserPointer.classList.remove('active');
+            createBigExplosion();
+            thoughtCloud.classList.remove('visible');
+
+             setTimeout(() => {
+                 activeHeads.forEach(headData => headData.element.remove());
+                 activeHeads = [];
+                 fullness = 0; updateFullnessVisual(); setHenryState('hungry');
+                 setTimeout(() => {
+                     if (!isInLaserMode) { resumeGameLogic(); updateThoughtCloud("Play again? :3"); }
+                 }, 300);
+             }, 500);
+        }
+
+        function createBigExplosion() { /* ... (same as before) ... */
+             const boom = document.createElement('div'); boom.id = 'big-explosion'; boom.textContent = '💖'; gameContainer.appendChild(boom);
+             setTimeout(() => { boom.remove(); }, 1000); // Match animation duration
+        }
+
+
+         // --- Game Logic Control --- (pauseGameLogic, resumeGameLogic unchanged)
+         function pauseGameLogic() { if (spawnIntervalId) clearInterval(spawnIntervalId); if (depletionIntervalId) clearInterval(depletionIntervalId); if (thoughtIntervalId) clearInterval(thoughtIntervalId); spawnIntervalId = depletionIntervalId = thoughtIntervalId = null; }
+         function resumeGameLogic() { if (isInLaserMode) return; cancelLaserCountdown(); laserPointer.classList.remove('active'); if(laserAnimationId) cancelAnimationFrame(laserAnimationId); laserAnimationId = null; if (!spawnIntervalId) spawnIntervalId = setInterval(spawnHead, headSpawnIntervalMs); if (!depletionIntervalId) depletionIntervalId = setInterval(depleteFullness, 1000); if (!thoughtIntervalId) thoughtIntervalId = setInterval(() => { if (!henryVisual.classList.contains('being-petted') && !isInLaserMode) { updateThoughtCloud(); } }, thoughtIntervalMs); updateFullnessVisual(); setHenryState(isFull ? 'full' : 'hungry'); }
+
+        // --- Event Listeners --- (handlePointerDown, handlePointerMove, handlePointerUp unchanged)
+        function handlePointerDown(event) { if (event.target === henryVisual || event.target.classList.contains('ginger-head')) { return; } if (laserTimeoutId || isInLaserMode || currentPointerId !== null) { return; } currentPointerId = event.pointerId; laserPosition.x = event.clientX; laserPosition.y = event.clientY; startLaserCountdown(event.clientX, event.clientY); }
+        function handlePointerMove(event) { if (!isInLaserMode && event.pointerId !== currentPointerId) { return; } laserPosition.x = event.clientX; laserPosition.y = event.clientY; if (laserTimeoutId) { /* Don't move countdown once started, it's too large */ } if (isInLaserMode) { laserPointer.style.left = `${event.clientX}px`; laserPointer.style.top = `${event.clientY}px`; } }
+        function handlePointerUp(event) { if (event.pointerId === currentPointerId) { cancelLaserCountdown(); } }
+
+        // --- Initialization --- (initGame unchanged)
+        function initGame() { console.log("Initializing Feed Henry :3 Game + EPIC Laser..."); updateFullnessVisual(); setHenryState('hungry'); gameContainer.addEventListener('pointerdown', handlePointerDown); gameContainer.addEventListener('pointermove', handlePointerMove); window.addEventListener('pointerup', handlePointerUp); window.addEventListener('pointerleave', handlePointerUp); henryVisual.addEventListener('pointerdown', petHenry); for(let i = 0; i < 4; i++) { setTimeout(spawnHead, i * 250); } resumeGameLogic(); updateThoughtCloud("Feed me :3"); setTimeout(() => thoughtCloud.classList.add('visible'), 100); console.log("Game Running! Feed the :3 or hold for LASER!"); }
+        document.addEventListener('DOMContentLoaded', initGame);
+
+    </script>
+</body>
+</html>

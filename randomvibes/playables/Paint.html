@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tiny Paint</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            background-color: #f0f0f0;
+            margin-top: 20px;
+            touch-action: none; /* Prevent scrolling on touch devices when drawing */
+        }
+        h1 {
+            color: #555;
+            margin-bottom: 10px;
+        }
+        .paint-app {
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 15px; /* Spacing between controls */
+            margin-bottom: 15px;
+            flex-wrap: wrap; /* Allow controls to wrap on smaller screens */
+            justify-content: center;
+        }
+        .controls label, .controls span {
+            font-size: 0.9em;
+            color: #333;
+        }
+        #drawingCanvas {
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            cursor: crosshair;
+            touch-action: none; /* Necessary again for some browsers */
+        }
+        button, input[type="color"], input[type="range"] {
+            padding: 5px 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        button {
+            background-color: #e7e7e7;
+            color: #333;
+        }
+        button:hover {
+            background-color: #dcdcdc;
+        }
+        button.active {
+            background-color: #b0d4ff;
+            border-color: #80bfff;
+            font-weight: bold;
+        }
+        input[type="color"] {
+            padding: 2px;
+            height: 30px;
+            width: 40px;
+            border: 1px solid #ccc;
+            vertical-align: middle; /* Align nicely with text/buttons */
+        }
+        input[type="range"] {
+            width: 80px;
+            vertical-align: middle;
+        }
+        #sizeValue {
+            min-width: 20px; /* Prevent layout shift */
+            display: inline-block;
+            text-align: right;
+            font-weight: bold;
+            color: #555;
+        }
+        .tool-group button {
+            margin-right: 5px; /* Space within the tool group */
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🎨 Tiny Paint 🖌️</h1>
+
+    <div class="paint-app">
+        <div class="controls">
+            <div class="tool-group">
+                 <button id="pencilBtn" class="active" title="Pencil">✏️</button>
+                 <button id="eraserBtn" title="Eraser">🧼</button>
+            </div>
+             <label for="colorPicker">Color:</label>
+             <input type="color" id="colorPicker" value="#000000">
+
+             <label for="sizeSlider">Size:</label>
+             <input type="range" id="sizeSlider" min="1" max="50" value="5">
+             <span id="sizeValue">5</span>
+
+             <button id="clearBtn">Clear All</button>
+        </div>
+
+        <canvas id="drawingCanvas" width="600" height="400">
+            Oops! Your browser doesn't support the canvas element.
+        </canvas>
+    </div>
+
+    <script>
+        // Wrap everything in an event listener for DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('drawingCanvas');
+            const ctx = canvas.getContext('2d');
+            const colorPicker = document.getElementById('colorPicker');
+            const sizeSlider = document.getElementById('sizeSlider');
+            const sizeValue = document.getElementById('sizeValue');
+            const clearBtn = document.getElementById('clearBtn');
+            const pencilBtn = document.getElementById('pencilBtn');
+            const eraserBtn = document.getElementById('eraserBtn');
+
+            // --- State Variables ---
+            let isDrawing = false;
+            let lastX = 0;
+            let lastY = 0;
+            let currentTool = 'pencil'; // 'pencil' or 'eraser'
+            let currentColor = colorPicker.value;
+            let currentSize = sizeSlider.value;
+            const backgroundColor = '#FFFFFF'; // White background
+
+            // --- Canvas Setup ---
+            // Set initial background
+            ctx.fillStyle = backgroundColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Set initial drawing style
+            ctx.strokeStyle = currentColor;
+            ctx.lineWidth = currentSize;
+            ctx.lineCap = 'round'; // Makes lines smoother
+            ctx.lineJoin = 'round'; // Makes corners smoother
+
+            // --- Drawing Functions ---
+            function getMousePos(canvasDom, event) {
+                const rect = canvasDom.getBoundingClientRect();
+                // Handle both mouse and touch events
+                const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+                const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
+                };
+            }
+
+            function startDrawing(e) {
+                isDrawing = true;
+                const pos = getMousePos(canvas, e);
+                [lastX, lastY] = [pos.x, pos.y];
+                // Prevent default touch behavior like scrolling
+                if (e.touches) e.preventDefault();
+            }
+
+            function draw(e) {
+                if (!isDrawing) return;
+
+                const pos = getMousePos(canvas, e);
+                const currentX = pos.x;
+                const currentY = pos.y;
+
+                ctx.beginPath();
+                // Set color based on tool
+                ctx.strokeStyle = (currentTool === 'eraser') ? backgroundColor : currentColor;
+                ctx.lineWidth = currentSize; // Ensure size is current
+
+                ctx.moveTo(lastX, lastY);
+                ctx.lineTo(currentX, currentY);
+                ctx.stroke();
+
+                [lastX, lastY] = [currentX, currentY];
+
+                // Prevent default touch behavior like scrolling
+                 if (e.touches) e.preventDefault();
+            }
+
+            function stopDrawing() {
+                if (isDrawing) {
+                     // Draw one last line segment to fix potential gaps on fast mouse up
+                     ctx.beginPath(); // Start a new path to ensure lineCap applies correctly on the last segment
+                     ctx.moveTo(lastX, lastY);
+                     ctx.lineTo(lastX, lastY); // Draw a tiny segment or dot
+                     ctx.stroke();
+                    isDrawing = false;
+                }
+            }
+
+            // --- Event Listeners ---
+            // Mouse Events
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing); // Stop if mouse leaves canvas
+
+             // Touch Events
+            canvas.addEventListener('touchstart', startDrawing);
+            canvas.addEventListener('touchmove', draw);
+            canvas.addEventListener('touchend', stopDrawing);
+            canvas.addEventListener('touchcancel', stopDrawing); // Stop if touch is interrupted
+
+
+            // Controls Events
+            colorPicker.addEventListener('input', (e) => {
+                currentColor = e.target.value;
+                // Only change strokeStyle if not erasing
+                if (currentTool === 'pencil') {
+                    ctx.strokeStyle = currentColor;
+                }
+            });
+
+            sizeSlider.addEventListener('input', (e) => {
+                currentSize = e.target.value;
+                sizeValue.textContent = currentSize;
+                ctx.lineWidth = currentSize;
+            });
+
+            pencilBtn.addEventListener('click', () => {
+                currentTool = 'pencil';
+                ctx.strokeStyle = currentColor; // Set color back to selected
+                pencilBtn.classList.add('active');
+                eraserBtn.classList.remove('active');
+                canvas.style.cursor = 'crosshair'; // Use crosshair for pencil
+            });
+
+            eraserBtn.addEventListener('click', () => {
+                currentTool = 'eraser';
+                // Eraser uses background color
+                // ctx.strokeStyle = backgroundColor; // This is now handled in draw()
+                pencilBtn.classList.remove('active');
+                eraserBtn.classList.add('active');
+                // Optional: change cursor for eraser
+                canvas.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${currentSize}" height="${currentSize}" viewBox="0 0 ${currentSize} ${currentSize}"><rect width="${currentSize}" height="${currentSize}" fill="white" stroke="gray" stroke-width="1"/></svg>') ${currentSize/2} ${currentSize/2}, auto`;
+            });
+
+             // Update eraser cursor size when size changes and eraser is active
+            sizeSlider.addEventListener('input', () => {
+                 if (currentTool === 'eraser') {
+                    canvas.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${currentSize}" height="${currentSize}" viewBox="0 0 ${currentSize} ${currentSize}"><rect width="${currentSize}" height="${currentSize}" fill="white" stroke="gray" stroke-width="1"/></svg>') ${currentSize/2} ${currentSize/2}, auto`;
+                 }
+             });
+
+
+            clearBtn.addEventListener('click', () => {
+                ctx.fillStyle = backgroundColor;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillRect(0, 0, canvas.width, canvas.height); // Refill background
+            });
+
+            // Set initial active button state
+            pencilBtn.click(); // Simulate click to set initial state correctly
+        });
+
+    </script>
+
+</body>
+</html>

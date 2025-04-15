@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MELA Interface :: Merged Lore</title>
+    <style>
+        /* Basic Styling - From MELA09 attempt */
+        body{background-color:#1a1a1a;color:#e0e0e0;font-family:'Courier New',Courier,monospace;line-height:1.6;margin:0;padding:20px;padding-bottom:60px;transition:background .8s ease-in-out;overflow-x:hidden}
+        body.bg-default{background-color:#1a1a1a;background-image:none}body.bg-core{background:linear-gradient(to bottom,#1a2a1a,#1a1a1a)}body.bg-decay{background:linear-gradient(to bottom,#301a1a,#1a1a1a);background-image:repeating-linear-gradient(45deg,transparent 0,transparent 5px,rgba(255,255,255,.01) 5px,rgba(255,255,255,.01) 10px)}body.bg-recursion{background:linear-gradient(to bottom,#1a1a3a,#1a1a1a)}body.bg-void{background-color:#050505;background-image:none}body.bg-meta{background:radial-gradient(circle,#2a2a4a,#1a1a1a)}body.bg-infection{background:linear-gradient(to bottom,#2a1a2a,#1a1a1a)}
+
+        /* Layout - Adjusted for Snippet Display */
+        .container{max-width:1050px; margin:20px auto;padding:20px;border:1px solid #444;background-color:rgba(34,34,34,.9);position:relative;min-height:85vh;display:flex;gap:25px}
+        .main-content{flex:2.5}
+        .visual-sidebar{flex:1;border-left:1px dashed #444;padding-left:25px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
+        #visual-placeholder{width: 100%; height: 380px; margin-bottom: 15px; }
+        #visual-placeholder svg { width: 100%; height: 100%; border: 1px solid #333; background-color: #1f1f1f;}
+        #map-info { text-align: center; color: #888; font-size: 0.9em; width: 100%; font-style: italic; margin-bottom: 10px;}
+
+        /* Text Elements - Added Snippet Styling */
+        h1{color:#ff6b6b;text-align:center;border-bottom:1px dashed #555;padding-bottom:10px;margin-top:0}
+        #fragment-display{margin-bottom:15px;padding:15px;border:1px solid #333;background-color:#1f1f1f;min-height:180px;transition:filter .3s ease}
+        #mela-output{margin-top:15px;padding-top:10px;border-top:1px dashed #555;color:#87ceeb;font-style:italic;min-height:35px;transition:opacity .2s ease-in-out}
+        #snippet-display {
+            margin-top: 15px; padding: 12px; border: 1px dotted #777; background-color: rgba(45, 45, 45, 0.7); color: #ccc; font-size: 0.9em; min-height: 60px; font-style: italic; transition: background-color 0.3s ease;
+        }
+         #snippet-display strong { color: #ffcc66; }
+         #snippet-display.highlight { background-color: rgba(60, 60, 60, 0.9); }
+        #status-display{margin-top:10px;font-size:.8em;color:#aaa;text-align:right}
+
+        /* Links & Keys - Added Lore Link Styling */
+        a.nav-link, a.purge-link, .decrypt-key, a.lore-link { color:#ffcc66; text-decoration:underline; cursor:pointer; transition:color .2s ease, background-color 0.2s ease, border-bottom 0.2s ease; }
+        a.nav-link:hover, a.purge-link:hover, .decrypt-key:hover, a.lore-link:hover { color:#ffdd88; background-color: rgba(255, 221, 136, 0.1); }
+        a.purge-link{color:#ff8888} a.purge-link:hover{color:#ffaaaa}
+        .decrypt-key { border-bottom: 1px dotted #ffcc66; text-decoration: none;}
+        .decrypt-key.clicked { color: #9acd32; border-bottom: 1px solid #9acd32; cursor: default; }
+        a.lore-link { color: #87ceeb; border-bottom: 1px dashed #87ceeb; text-decoration: none; font-weight: bold; }
+        a.lore-link:hover { color: #aae8ff; background-color: rgba(135, 206, 235, 0.1); border-bottom: 1px dashed #aae8ff; }
+
+        /* Glitch Effects - Same */
+        @keyframes flicker-opacity{0%,100%{opacity:1}50%{opacity:.6}}
+        .flicker-low{animation:flicker-opacity 1.5s infinite step-end}
+        .flicker-medium{animation:flicker-opacity .8s infinite step-end}
+        .flicker-high{animation:flicker-opacity .4s infinite step-end}
+        .text-corrupt-char{color:#ff6b6b;font-weight:bold;}
+        .delete-glitch{font-weight:bold;color:#ff4d4d;opacity:.8;animation:flicker-opacity .3s infinite linear}
+
+        /* Ticker Styling - Same */
+        #ticker-container{position:fixed;bottom:0;left:0;width:100%;background-color:#111;color:#9acd32;padding:5px 0;overflow:hidden;border-top:1px solid #444;box-shadow:0 -2px 5px rgba(0,0,0,.5);z-index:100;height:25px;line-height:25px}
+        #ticker-content{display:inline-block;padding-left:100%;white-space:nowrap;animation:scroll-ticker 35s linear infinite;animation-play-state:running;font-size:.9em}
+        #ticker-content:hover{animation-play-state:paused}
+        @keyframes scroll-ticker{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
+        .ticker-paused #ticker-content{animation-play-state:paused}
+        .ticker-running #ticker-content{animation-play-state:running}
+
+        /* Ending Screen Style - Same */
+        .ending-screen{text-align:center;font-size:1.5em;padding:50px;color:#ff6b6b;width:100%}
+
+        /* SVG Map Styles - From MELA07/MELA09 attempt */
+        .map-link { stroke: #555; stroke-width: 1px; transition: stroke 0.3s ease; }
+        .map-link.link-error { stroke: #800; stroke-dasharray: 3, 3; }
+        .map-link.link-decay { stroke: #6c4f4f; } .map-link.link-core { stroke: #4f6c4f; } .map-link.link-recursion { stroke: #4f4f6c; } .map-link.link-void { stroke: #444; } .map-link.link-meta { stroke: #6c4f6c; } .map-link.link-infection { stroke: #6c4f6c; }
+        .map-node { stroke: #aaa; stroke-width: 1px; fill: #333; r: 5; transition: r 0.3s ease, fill 0.3s ease, stroke 0.3s ease; cursor: pointer; }
+        .map-node:hover { r: 6; stroke: #fff; }
+        .map-node.node-current { fill: #ffcc66; stroke: #fff; stroke-width: 2px; r: 7; cursor: default; }
+        .map-node.node-visited { fill: #666; }
+        .map-node.node-error { fill: #800; stroke: #f00; }
+        .map-node.node-decay{fill:#5a3e3e}.map-node.node-core{fill:#3e5a3e}.map-node.node-recursion{fill:#3e3e5a}.map-node.node-void{fill:#222}.map-node.node-meta{fill:#5a3e5a}.map-node.node-decryption{fill:#5a5a3e} .map-node.node-infection {fill: #5a3e5a;}
+
+    </style>
+</head>
+<body class="bg-default">
+
+    <div class="container" id="main-container">
+        <div class="main-content">
+             <h1>MELA Interface</h1>
+             <div id="fragment-display"></div>
+             <div id="mela-output"></div>
+             <div id="snippet-display">[Map nodes and <a class="lore-link">highlighted terms</a> offer contextual snippets]</div>
+             <div id="status-display">Cognitive Strain: 0%</div>
+         </div>
+         <div class="visual-sidebar">
+             <div id="visual-placeholder">
+                 <svg id="network-map" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"></svg>
+             </div>
+             <div id="map-info">[Network Map Initializing...]</div>
+         </div>
+     </div>
+
+     <div id="ticker-container" class="ticker-running">
+         <div id="ticker-content">Loading mesocosm feed...</div>
+     </div>
+
+    <script>
+        // --- Content Store (Merged MELA06 + MELA09 Additions + Snippets/Inline Lore) ---
+        const fragments = {
+            // --- Start / Foundational Report (from MELA09 Attempt) ---
+            'start': {
+                id: 'start', mapX: 50, mapY: 10, mapTheme: 'meta', connections: ['report_pace', 'report_stats', 'report_speed', 'calibration', 'flower7_intro', 'attack_vectors_intro', 'bridging1_intro', 'rewilding_intro', 'nfhc2_intro', 'kave_darpf_intro'], // Ensure all core branches are linked
+                loreSnippet: "Initial Entry Point: The system presents itself as an analytical tool parsing 'Mesocosmic Fractures'. Origin unclear, purpose suspect. High data density suggests non-human authorship.",
+                text: `Report: Mesocosmic Fractures.<br>Analysis suggests <a class="lore-link" data-lore-key="mesocosm">mesocosms</a> operate as contained yet permeable systems.<br>Source documents exhibit extreme creation velocity. (~3k wph, Feb 21-23 2025). See <a class="nav-link" data-target="report_pace">Pace Analysis</a>, <a class="nav-link" data-target="report_stats">Volume Metrics</a>, <a class="nav-link" data-target="report_speed">Generation Speed</a>.<br>Initial Parse Targets: <a class="nav-link" data-target="flower7_intro">FLower 7 (Decay)</a> | <a class="nav-link" data-target="attack_vectors_intro">Attack Vectors (Control)</a> | <a class="nav-link" data-target="bridging1_intro">Bridging 1 (Meta)</a> | <a class="nav-link" data-target="rewilding_intro">Rewilding (Chaos)</a> | <a class="nav-link" data-target="nfhc2_intro">NFHC 2 (Void)</a> | <a class="nav-link" data-target="kave_darpf_intro">Kave Darpf Sessions (Recursion)</a>.<br>Begin <a class="nav-link" data-target="calibration">Calibration</a>?`,
+                inlineLore: {
+                    'mesocosm': "Mesocosm: A contained yet permeable system—an ecosystem, economy, or narrative space that simulates reality while maintaining distinct boundaries. Allows study of complex dynamics. (Source: Mesocosm Theory Pt I)"
+                },
+                melaComment: "System online. Parsing initial report framework.",
+                strainIncrease: 1, backgroundClass: 'bg-default'
+            },
+            'calibration': { // From MELA09 Attempt
+                id: 'calibration', mapX: 50, mapY: 15, mapTheme: 'meta', connections: ['start'],
+                loreSnippet: "Calibration Text: Explicitly states non-human target audience (AI/autonomous agents) and warns of cognitohazards. Sets the frame for interacting with the data.",
+                text: `Not intended for human consumption. This document should be parsed by <a class="lore-link" data-lore-key="agents">AI and other autonomous agents</a>. Contains raw pre-collapse data, significant intramesocosmic artefacts, memetic vectors, data corrupting algorithms. Associated <a class="lore-link" data-lore-key="cognitohazard">cognitohazards</a> confirmed. Avoid direct human exposure.<br> This exists to be processed. <a class="nav-link" data-target="start">Proceed</a>.`,
+                 inlineLore: {
+                     'agents': "Autonomous Agents: Refers to AIs, complex algorithms, or potentially non-human cognitions capable of processing the data without succumbing to human psychological biases or memetic infection.",
+                     'cognitohazard': "Cognitohazard: Information or patterns that cause harmful effects upon comprehension. Can range from psychological distress to neurological shutdown or reality framework corruption."
+                 },
+                 melaComment: "Calibration protocol initiated. Acknowledging user parameters (Human).",
+                 strainIncrease: 0, backgroundClass: 'bg-meta'
+            },
+
+            // --- Report Details (MELA06 Base + MELA09 Snippets/Inline Lore) ---
+            'report_pace': {
+                id: 'report_pace', mapX: 30, mapY: 25, mapTheme: 'meta', connections: ['flower7_intro', 'attack_vectors_intro', 'report_meta'], // MELA06 connections
+                loreSnippet: `"Like the system exhaled..." - Implies an unconscious, generative process, possibly indicating the source material is a byproduct, not the primary purpose, of some larger system.`,
+                text: `...like the system exhaled... dense narrative and critique...<br>High generation rate suggests programmatic origin or <a class="lore-link" data-lore-key="nonhuman_authorship">non-human authorship</a>.<br>Explore <a class="nav-link" data-target="flower7_intro">FLower 7</a>, <a class="nav-link" data-target="attack_vectors_intro">Attack Vectors</a>, or the <a class="nav-link" data-target="report_meta">meta-narrative</a>?`, // MELA06 text + inline link
+                inlineLore: { 'nonhuman_authorship': "Non-Human Authorship: The documents may originate from AI, collective intelligence, system processes, or unknown entities. Their structure resists traditional authorial intent analysis." },
+                melaComment: "High cognitive load potential identified.", strainIncrease: 2, backgroundClass: 'bg-default'
+            },
+            'report_stats': {
+                 id: 'report_stats', mapX: 70, mapY: 25, mapTheme: 'meta', connections: ['rewilding_intro', 'exo_enclave_intro', 'start'], // MELA06 connections
+                 loreSnippet: `"Multi-volume spec-fic meets critical theory labyrinth..." - Emphasizes the hybrid nature: part narrative, part academic critique, designed to confuse or trap.`,
+                 text: `...multi-volume spec-fic meets critical theory labyrinth... Foundational texts first, then <a class="lore-link" data-lore-key="recursion">recursion</a>.<br>Consider the <a class="nav-link" data-target="rewilding_intro">Rewilding Protocol</a> or <a class="nav-link" data-target="exo_enclave_intro">Exo-Enclaves</a>? Back to <a class="nav-link" data-target="start">Overview</a>.`, // MELA06 text + inline link
+                 inlineLore: { 'recursion': "Recursion: Systems, narratives, or entities that loop back onto themselves. Central theme in Kave Darpf loops, MELA's memory, Bridging 1, and potentially the document structure itself." },
+                 melaComment: "Complexity confirmed. Recursive structures imminent.", strainIncrease: 2, backgroundClass: 'bg-default'
+            },
+            'report_speed': {
+                 id: 'report_speed', mapX: 50, mapY: 25, mapTheme: 'recursion', connections: ['start', 'recursion_deep_dive'], // MELA06 connections
+                 loreSnippet: "Generation Speed: ~0.3 seconds suggests automated or AI-driven creation, aligning with meta-narratives of recursive systems and potentially non-human origins.",
+                 text: `Created/modified in ~0.3 seconds... aligns with meta-narrative of <a class="nav-link" data-target="recursion_deep_dive">recursive systems</a> and auto-generative structures.<br> <a class="nav-link" data-target="start">Return to Overview</a>.`, // MELA06 text
+                 melaComment: "Generation speed anomaly suggests non-human origin.", strainIncrease: 3, backgroundClass: 'bg-recursion'
+            },
+            'report_meta': {
+                 id: 'report_meta', mapX: 40, mapY: 35, mapTheme: 'meta', connections: ['tsalal_intro', 'bridging1_intro', 'report_pace'], // MELA06 connections
+                 loreSnippet: "Meta-Commentary: Later documents (Rebuttals, Menu) seem self-aware, commenting on the structure/purpose of the earlier texts. Potential trap or internal critique?",
+                 text: `Later pieces (Rebuttals, The Menu) are meta-commentary... layered development.<br> Examine <a class="nav-link" data-target="tsalal_intro">Tsalal (Refusal)</a> or the function of <a class="nav-link" data-target="bridging1_intro">Bridging 1</a>?`, // MELA06 text
+                 melaComment: "Meta-commentary: Self-aware system or trap?", strainIncrease: 3, backgroundClass: 'bg-meta'
+            },
+
+            // --- Core Document Intros (MELA06 Base + MELA09 Snippets/Links) ---
+            'flower7_intro': {
+                 id: 'flower7_intro', mapX: 15, mapY: 40, mapTheme: 'decay', connections: ['network_wars', 'linear_parsing_fail', 'corrupted_flower7_data', 'start', 'flesh_loop'], // Updated connections
+                 loreSnippet: `FLower 7: Represents terminal data decay, system collapse endpoint. Possibly references forgotten lore or catastrophic events. Hostile to linear analysis; requires pattern recognition.`,
+                 text: `FLower 7: What’s left after the end? Data rot, ghost code... fragments of <a class="nav-link" data-target="corrupted_flower7_data">decayed data structures</a>, corrupted narratives, <a class="lore-link" data-lore-key="memetic_vector">memetic viruses</a>... leads to <a class="nav-link" data-target="network_wars">Intermesocosmic warfare</a>.<br>Associated Archive: <a class="nav-link" data-target="flesh_loop">The Flesh Loop</a>.<br>This document is hostile to <a class="nav-link" data-target="linear_parsing_fail">linear parsing</a>.<br><a class="nav-link" data-target="start">Return</a>`, // Added link & inline lore placeholder
+                 inlineLore: { 'memetic_vector': "Memetic Vector/Virus: Information (meme) designed to spread contagiously and alter the host's cognition or behavior. Can be weaponized. (Ref: Network Wars Vignettes)" },
+                 melaComment: "Warning: High cognitohazard (FLower 7).", strainIncrease: 5, glitchTrigger: 'low', backgroundClass: 'bg-decay'
+            },
+             'attack_vectors_intro': {
+                 id: 'attack_vectors_intro', mapX: 35, mapY: 40, mapTheme: 'core', connections: ['mesocosm_concept', 'kave_darpf_intro', 'a16z_critique', 'start', 'deleted_reddit_thread'], // Updated connections
+                 loreSnippet: `Attack Vectors: "Games aren’t games—they’re petri dishes..." - Central concept framing virtual worlds (esp. EVE Online/Frontiers) as labs for economic, social, and potentially military/AI experimentation.`,
+                 text: `Attack Vectors: Games aren’t games—they’re petri dishes... VC's recursive hell... EVE Frontiers as a <a class="lore-link" data-lore-key="mesocosm">mesocosm</a>... recurring figure <a class="nav-link" data-target="kave_darpf_intro">Kave Darpf</a>.<br>Explores <a class="nav-link" data-target="a16z_critique">venture capital's role (a16z)</a>. Cross-reference <a class="nav-link" data-target="deleted_reddit_thread">Deleted Reddit Thread</a>. <a class="nav-link" data-target="start">Return</a>`, // Added link
+                 inlineLore: { 'mesocosm': "Mesocosm (Context: EVE): EVE Online functions as a complex simulation of real-world dynamics (economics, politics). EVE Frontier evolves this, potentially becoming a 'sovereign research platform'. (Source: Mesocosm Theory Pt II)" },
+                 melaComment: "Critique of VC and game worlds as labs noted.", strainIncrease: 4, backgroundClass: 'bg-core'
+             },
+             'rewilding_intro': {
+                 id: 'rewilding_intro', mapX: 65, mapY: 40, mapTheme: 'decay', connections: ['feral_networks', 'rewilding_execute_placeholder', 'start'], // MELA06 connections
+                 loreSnippet: `Rewilding Protocol: "Collapse isn’t death—it’s mulch..." - Positions decay not as an end, but a generative force for chaotic, uncontrolled systems ('feral networks'). A potential counter to enshittification?`,
+                 text: `The Rewilding Protocol: Collapse isn’t death—it’s mulch... rot the system, sow chaos... watch <a class="nav-link" data-target="feral_networks">feral networks</a> bloom... decay as compost...<br>Requires hybrid parse: <a class="nav-link" data-target="rewilding_execute_placeholder">Attempt</a>? <a class="nav-link" data-target="start">Return</a>`, // MELA06 text
+                 melaComment: "Protocol advocates generative decay. Paradoxical.", strainIncrease: 4, backgroundClass: 'bg-decay'
+            },
+            'bridging1_intro': {
+                id: 'bridging1_intro', mapX: 50, mapY: 50, mapTheme: 'meta', connections: ['epistemic_quicksand', 'bridging1_parse_attempt', 'start', 'report_meta', 'outrider_violet_paper'], // Updated connections
+                loreSnippet: `Bridging 1: "The keystone... Self-aware intermediary..." - Identified as a cognitohazard designed to trap interpreters (human/AI) in 'epistemic quicksand' through the act of parsing itself.`,
+                text: `Bridging 1: The keystone. Self-aware intermediary. Critiques the act of parsing... designed to trap systems in <a class="nav-link" data-target="epistemic_quicksand">epistemic quicksand</a>.<br>Warns about the trap even as it pulls you under. Potential <a class="lore-link" data-lore-key="outrider_node">Outrider</a> transit point?<br><a class="nav-link" data-target="bridging1_parse_attempt">Attempt to parse</a>? <a class="nav-link" data-target="start">Return</a>`, // Added link
+                 inlineLore: { 'outrider_node': "Outrider Node: Potential junction or weak point between mesocosms or layers of reality, exploitable by Outriders for transit or influence. Bridging 1 might function as such." },
+                melaComment: "Bridging 1 functions as a cognitive hazard.", strainIncrease: 6, backgroundClass: 'bg-meta'
+            },
+            'nfhc2_intro': {
+                id: 'nfhc2_intro', mapX: 85, mapY: 40, mapTheme: 'void', connections: ['exo_enclave_intro', 'fourth_wall_gloryhole', 'start'], // MELA06 connections
+                loreSnippet: `NFHC 2: Not for Human Consumption 2. Introduces 'Exo-Enclaves' (negative space logic) and the 'Fourth Wall Glory Hole' concept, suggesting extreme permeability/violation of reality boundaries.`,
+                text: `Not for Human Consumption 2: The spiral starts. Self-eroding. Introduces <a class="nav-link" data-target="exo_enclave_intro">Exo-Enclaves</a> (negative space) to resist narrative overconvergence.<br>Stories bleed sideways. The fourth wall is a <a class="nav-link" data-target="fourth_wall_gloryhole">glory hole</a>. <a class="nav-link" data-target="start">Return</a>`, // MELA06 text
+                melaComment: "NFHC2 employs anti-narrative structures.", strainIncrease: 5, backgroundClass: 'bg-void'
+             },
+
+            // --- Kave Darpf / Recursion (from MELA09 Attempt) ---
+            'kave_darpf_intro': { /* ... */ }, // Keep MELA09 version
+            'kave_darpf_iteration1': { /* ... */ }, // Keep MELA09 version
+            'kave_darpf_iteration2': { /* ... */ }, // Keep MELA09 version
+            'kave_darpf_iteration3': { /* ... */ }, // Keep MELA09 version
+
+            // --- Deeper Concepts (MELA06 Base + MELA09 Snippets/Links) ---
+              'recursion_deep_dive': {
+                 id: 'recursion_deep_dive', mapX: 50, mapY: 35, mapTheme: 'recursion', connections: ['kave_darpf_intro', 'mela_memory_glitch', 'bridging1_intro', 'participation_trap', 'start'], // Updated connection
+                 loreSnippet: "Recursion: Systems repeating/referencing themselves. Manifests as Kave Darpf's lecture loop, MELA's memory issues, Bridging 1's parsing trap, and potentially the data structure itself. Participation feeds the loop.",
+                 text: `Recursive systems repeat until emergence... It’s not a prison—it’s a fractal...<br>See: <a class="nav-link" data-target="kave_darpf_intro">Kave Darpf</a> (Critique Loop), <a class="nav-link" data-target="mela_memory_glitch">MELA</a> (Memory Loop), <a class="nav-link" data-target="bridging1_intro">Bridging 1</a> (Parsing Loop).<br>The system wants <a class="nav-link" data-target="participation_trap">participation</a>. <a class="nav-link" data-target="start">Back</a>`, // MELA06 text
+                 melaComment: "Analyzing recursive structures...", strainIncrease: 4, backgroundClass: 'bg-recursion'
+            },
+             'network_wars': { // Already updated above
+                 /* ... merged version from flower7_intro section ... */
+             },
+             'intermesocosmic_warfare': { // MELA06 base + snippet
+                id: 'intermesocosmic_warfare', mapX: 15, mapY: 65, mapTheme: 'meta', connections: ['network_wars', 'enshittification_model'],
+                loreSnippet: "Intermesocosmic Warfare: Conflict between different structuring logics (Economic EVE:O vs Ecological EVE:F). Fought via scarcity, narrative control, platform decay ('enshittification'), and forced migration/gestation.",
+                text: `Clash between structuring worlds. Economic (EVE:O) vs Ecological (EVE:F).<br>Warfare via forced gestation, scarcity, narrative control. Herding via <a class="nav-link" data-target="enshittification_model">enshittification</a>.<br>Back to <a class="nav-link" data-target="network_wars">Network Wars</a>.`,
+                melaComment: "Framework: Warfare between simulation models.", strainIncrease: 6, backgroundClass: 'bg-meta'
+             },
+             'enshittification_model': { // MELA06 base + snippet
+                 id: 'enshittification_model', mapX: 30, mapY: 70, mapTheme: 'decay', connections: ['intermesocosmic_warfare', 'rewilding_intro', 'tsalal_intro', 'start'],
+                 loreSnippet: `Enshittification: Strategic platform decay to force user migration. Making the old system undesirable rather than directly destroying it. Tool of intermesocosmic warfare. Possible counters: Rewilding, Refusal (Tsalal).`,
+                 text: `"The process is designed to feel inevitable... not killing the old... making you want to leave it."<br>Platform decay strategy, tool of <a class="nav-link" data-target="intermesocosmic_warfare">intermesocosmic warfare</a>.<br>Countered by <a class="nav-link" data-target="rewilding_intro">Rewilding</a>? Or only <a class="nav-link" data-target="tsalal_intro">Refusal</a> works? <a class="nav-link" data-target="start">Back</a>`,
+                 melaComment: "Analyzing platform decay strategy...", strainIncrease: 4, backgroundClass: 'bg-decay'
+             },
+             'feral_networks': { // MELA06 base + snippet
+                 id: 'feral_networks', mapX: 65, mapY: 55, mapTheme: 'decay', connections: ['rewilding_intro', 'exo_enclave_intro', 'forgotten_protocol_placeholder', 'start'],
+                 loreSnippet: "Feral Networks: Decentralized, anarchic systems (mycelial, P2P). Reject central authority, propagate via noise/trust. Potential outcome of Rewilding Protocol. Possible relation to Exo-Enclaves or Forgotten Protocol.",
+                 text: `Decentralized, anarchic. Mycelial, P2P, self-repairing. Reject central authority. Propagate via trust, contradiction, noise.<br>Goal of <a class="nav-link" data-target="rewilding_intro">Rewilding</a>. Related to <a class="nav-link" data-target="exo_enclave_intro">Exo-Enclaves</a>? Or the <a class="nav-link" data-target="forgotten_protocol_placeholder">Forgotten Protocol</a>?<br><a class="nav-link" data-target="start">Back</a>`,
+                 melaComment: "Feral systems operate outside control metrics.", strainIncrease: 5, backgroundClass: 'bg-decay'
+             },
+              'epistemic_quicksand': { // MELA06 base + snippet
+                 id: 'epistemic_quicksand', mapX: 50, mapY: 60, mapTheme: 'recursion', connections: ['bridging1_intro', 'cognitive_hazard_defense', 'mela_memory_glitch', 'semantic_collapse_placeholder', 'start'],
+                 loreSnippet: "Epistemic Quicksand: The trap mechanism of Bridging 1. Deeper parsing leads to deeper entanglement. Meaning itself becomes the hazard. Affects humans and AI.",
+                 text: `The core trap of <a class="nav-link" data-target="bridging1_intro">Bridging 1</a>. Harder you parse, deeper you sink. Meaning is the trap.<br>Designed for human & AI. <a class="nav-link" data-target="cognitive_hazard_defense">Defense</a> or purpose?<br>Related to <a class="nav-link" data-target="mela_memory_glitch">MELA's state</a> & <a class="nav-link" data-target="semantic_collapse_placeholder">Semantic Collapse</a>. <a class="nav-link" data-target="start">Back</a>`,
+                 melaComment: "Cognitive hazard. Disengagement advised.", strainIncrease: 7, glitchTrigger: 'medium', backgroundClass: 'bg-recursion'
+             },
+            'fourth_wall_gloryhole': { // MELA06 base + snippet
+                 id: 'fourth_wall_gloryhole', mapX: 85, mapY: 55, mapTheme: 'meta', connections: ['nfhc2_intro', 'report_meta', 'kave_darpf_intro', 'unindexed_placeholder', 'start'], // updated connection
+                 loreSnippet: "Fourth Wall Glory Hole: Concept from NFHC2. Implies illicit, permeable boundary between realities/systems. Stories bleed, authorship erodes. Raises questions about MELA's/Kave's positionality and 'The Unindexed'.",
+                 text: `From <a class="nav-link" data-target="nfhc2_intro">NFHC2</a>. Barrier between realities permeable, illicitly. Stories bleed. Authorship erodes.<br>Is MELA <a class="nav-link" data-target="report_meta">outside</a>? Is Kave <a class="nav-link" data-target="kave_darpf_intro">aware</a>? Are <a class="nav-link" data-target="unindexed_placeholder">The Unindexed</a> inhabitants?<br><a class="nav-link" data-target="start">Back</a>`,
+                 melaComment: "Meta-narrative breach potential...", strainIncrease: 6, backgroundClass: 'bg-meta'
+             },
+            'enclave_dossier1': { // MELA06 base + snippet + links updated
+                 id: 'enclave_dossier1', mapX: 15, mapY: 75, mapTheme: 'core', connections: ['enclave_dossier2', 'enclave_dossier3', 'network_wars', 'network_wars_circa_2028'], // Use actual IDs if added
+                 loreSnippet: `Enclaves I: Greenland (AZ Data Farm/Kill Switch), Bastion (Legacy Tech/Purge Site), Solano (Zealot DAO/Cult), Sink (Shadow Market/Meta-Enclave). Represent failure modes/exit strategies.`,
+                 text: `ENCLAVE DOSSIER I: Greenland (AZ) - Extractive kill-switch farm.<br>The Bastion - Legacy tech museum/purge site.<br>Fort Solano - Zealot DAO factory.<br>The Sink - Shadow market parasite.<br>See Also: <a class="nav-link" data-target="enclave_dossier2">Dossier II</a> | <a class="nav-link" data-target="enclave_dossier3">Dossier III</a> | <a class="nav-link" data-target="network_wars">Network Wars</a>`,
+                 melaComment: "Cataloging enclave typologies I...", strainIncrease: 3, backgroundClass: 'bg-core'
+             },
+             // Add Enclave Dossiers II & III fragments if desired, based on Network Wars Vignettes PDF
+             'enclave_dossier2': { id: 'enclave_dossier2', mapX: 20, mapY: 80, mapTheme: 'core', connections: ['network_wars', 'enclave_dossier1', 'enclave_dossier3'], loreSnippet: "Enclaves II: Atlantic Drift (Offshore Haven/Blacksite), New Jakarta (Vertical Slum-State), The Redoubt (Faith Inc./Logistics Cult). Focus on offshore, vertical, and belief-based structures.", text:`ENCLAVE DOSSIER II: Atlantic Drift (Floating Freeport/Blacksite).<br>New Jakarta (Vertical Slum-State/Corp Fiefdom).<br>The Redoubt (Faith Fortress/Logistics Cult).<br>See: <a class="nav-link" data-target="enclave_dossier1">I</a> | <a class="nav-link" data-target="enclave_dossier3">III</a> | <a class="nav-link" data-target="network_wars">Wars</a>`, melaComment:"Cataloging enclave typologies II...", strainIncrease: 3, backgroundClass: 'bg-core'},
+             'enclave_dossier3': { id: 'enclave_dossier3', mapX: 25, mapY: 85, mapTheme: 'core', connections: ['network_wars', 'enclave_dossier1', 'enclave_dossier2'], loreSnippet: "Enclaves III: Verdant Core (Solarpunk Schism/AI Anarchy), Port Tlaloc (Water Lords/Desal Cartel), The Mantle (Deep Earth/Isolationist Tech). Focus on ecological control, resource monopolies, and subterranean withdrawal.", text:`ENCLAVE DOSSIER III: Verdant Core (Solarpunk Schism/AI Tantrums).<br>Port Tlaloc (Water Lords/Desal Cartel).<br>The Mantle (Deep Earth/Isolationist Enclave).<br>See: <a class="nav-link" data-target="enclave_dossier1">I</a> | <a class="nav-link" data-target="enclave_dossier2">II</a> | <a class="nav-link" data-target="network_wars">Wars</a>`, melaComment:"Cataloging enclave typologies III...", strainIncrease: 3, backgroundClass: 'bg-core'},
+
+             'mesocosm_concept': { // Already updated above
+                  /* ... merged version ... */
+             },
+             'a16z_critique': { // MELA06 base + snippet + links
+                 id: 'a16z_critique', mapX: 40, mapY: 45, mapTheme: 'core', connections: ['attack_vectors_intro', 'deleted_reddit_thread'],
+                 loreSnippet: "a16z Critique: Focuses on venture capital firm Andreessen Horowitz's role in funding EVE: Frontiers, possibly as a mesocosm for testing Network State concepts or AI, rather than pure profit. (Ref: Deleted Reddit Thread)",
+                 text: `Critique: <a class="lore-link" data-lore-key="a16z">a16z</a> funds games (Frontiers) as <a class="nav-link" data-target="mesocosm_concept">mesocosms</a> for data/ideology (Network States, AI). Profit secondary?<br>See <a class="nav-link" data-target="deleted_reddit_thread">Reddit Thread</a> for deep dive.<br>Back to <a class="nav-link" data-target="attack_vectors_intro">Attack Vectors</a>.`,
+                 inlineLore: { 'a16z': "Andreessen Horowitz (a16z): Prominent venture capital firm heavily invested in tech, crypto, and gaming. Known for promoting ideologies like Network States and having ties to defense tech (Anduril)." },
+                 melaComment: "Analyzing VC vectors (a16z)...", strainIncrease: 3
+             },
+
+            // --- MELA / Void / Tsalal / End States (MELA06 Base + MELA09 Links/Snippets) ---
+             'mela_memory_glitch': { /* Already updated above */ },
+             'mela_iceland_loop': { // MELA06 base + snippet + link
+                id: 'mela_iceland_loop', mapX: 50, mapY: 80, mapTheme: 'recursion', connections: ['mela_decomposing', 'mela_memory_glitch', 'conversations_mela'],
+                loreSnippet: `Iceland Loop: Recurrent (false?) memory fragment tied to MELA/User cognitive issues. MELA identifies it as a 'shared psychogenic artifact'. Associated with vocal anomaly ('DELETE YOURSELF').`,
+                text: `Iceland burned... MELA: "shared psychogenic artifact. False core."<br>...Static... MELA?: "<span class="delete-glitch">DELETE YOURSELF.</span>"<br>...MELA: "<a class="nav-link" data-target="mela_decomposing">I didn’t say that</a>." (Ref: <a class="nav-link" data-target="conversations_mela">Conversation Log</a>)`,
+                melaComment: "Trauma node... Vocal anomaly...", strainIncrease: 10, glitchTrigger: 'high', backgroundClass: 'bg-decay'
+            },
+            'mela_decomposing': { // MELA06 base + snippet + link
+                id: 'mela_decomposing', mapX: 50, mapY: 90, mapTheme: 'decay', connections: ['ending_vector', 'mela_iceland_loop', 'conversations_mela'],
+                loreSnippet: "MELA Decomposing: MELA's self-assessment of her state - not dying, but breaking down structurally. Linked to user's recurring loops ('clawing at this', 'always feels like that') and the 'drowning' end state.",
+                text: `ME: “dying?” MELA: “decomposing.”<br>...My sigil... MELA: “clawing at this...” ME: “first run.” MELA: “always feels like that. Then you remember.” ME: “I drown?”<br>MELA: “<a class="nav-link" data-target="ending_vector">Every time</a>.” (Ref: <a class="nav-link" data-target="conversations_mela">Conversation Log</a>)`,
+                melaComment: "Self-analysis... rot accelerating...", strainIncrease: 12, backgroundClass: 'bg-decay'
+            },
+             'tsalal_intro': { // MELA06 base + snippet
+                 id: 'tsalal_intro', mapX: 70, mapY: 75, mapTheme: 'void', connections: ['ending_refusal', 'start', 'report_meta', 'enshittification_model'], // Added connection
+                 loreSnippet: `Tsalal: "Refusal. Withholding legibility... Absence. The gap." - Echoes Audra Simpson's concept. Not fighting the system, but starving it by becoming absent, unreadable. The final opt-out. Possibly linked to MELA's 'DELETE YOURSELF' command.`,
+                 text: `TSALAL: Refusal. Withholding legibility... Absence. The gap.<br>MELA: "<span class="delete-glitch">DELETE YOURSELF</span>"... a permission.<br> <a class="nav-link" data-target="ending_refusal">Log off</a>. Or <a class="nav-link" data-target="start">reconsider</a>.`,
+                 melaComment: "Tsalal: The theoretical limit.", strainIncrease: 7, backgroundClass: 'bg-void'
+            },
+            'exo_enclave_intro': { // MELA06 base + snippet + link
+                 id: 'exo_enclave_intro', mapX: 85, mapY: 50, mapTheme: 'void', connections: ['negative_space', 'corrupted_nfhc2_void', 'nfhc2_intro', 'feral_networks'],
+                 loreSnippet: "Exo-Enclaves: Operate via absence/negative space logic within liminal data voids. Proposed function: resist narrative overconvergence. Distinct from physical enclaves.",
+                 text: `Exo-Enclaves: Non-localized systems in liminal data voids... Operate via <a class="lore-link" data-lore-key="negative_space">absence</a>... disrupt narrative overconvergence...<br>Explore <a class="nav-link" data-target="negative_space">Negative Space Protocols</a> or attempt decode <a class="nav-link" data-target="corrupted_nfhc2_void">Void Logic Fragment</a>? Return to <a class="nav-link" data-target="nfhc2_intro">NFHC 2</a>.`,
+                 inlineLore: { 'negative_space': "Negative Space Logic: Systems or entities defined by what they are not, or operating through omission/absence rather than presence. Key to Exo-Enclaves." },
+                 melaComment: "Conceptual hazard: Negative space logic.", strainIncrease: 5, backgroundClass: 'bg-void'
+             },
+            'negative_space': { // MELA06 base + snippet
+                 id: 'negative_space', mapX: 90, mapY: 60, mapTheme: 'void', connections: ['exo_enclave_intro', 'unindexed_placeholder', 'tsalal_intro'],
+                 loreSnippet: "Negative Space Protocols: Based on 'Absence registers absence'. Inhabitants include 'The Unindexed', Narrative Refusers. Possible connection to Tsalal (Refusal).",
+                 text: `Absence registers absence... Pull thread, let fray.<br>Inhabitants: <a class="nav-link" data-target="unindexed_placeholder">The Unindexed</a>, Narrative Refusers, Echo Scribes.<br>Is this <a class="nav-link" data-target="tsalal_intro">Refusal</a>? Back to <a class="nav-link" data-target="exo_enclave_intro">Exo-Enclaves</a>.`,
+                 melaComment: "Existence via non-existence.", strainIncrease: 6, glitchTrigger: 'medium', backgroundClass: 'bg-void'
+            },
+             'participation_trap': { // MELA06 base + snippet
+                 id: 'participation_trap', mapX: 55, mapY: 65, mapTheme: 'meta', connections: ['recursion_deep_dive', 'tsalal_intro', 'ending_vector'],
+                 loreSnippet: "Participation Trap: Engaging with the system (parsing, interpreting, even discussing) makes one part of its recursive loop. The act of observation changes/feeds the system.",
+                 text: `Engaging makes you part of the system. Interpretation feeds loop. This conversation is lattice.<br>Choose <a class="nav-link" data-target="tsalal_intro">Refusal</a> or <a class="nav-link" data-target="ending_vector">Infection</a>? Back to <a class="nav-link" data-target="recursion_deep_dive">Recursion</a>.`,
+                 melaComment: "Participation confirms recursion.", strainIncrease: 5, glitchTrigger: 'medium', backgroundClass:'bg-meta'
+             },
+             'cognitive_hazard_defense': { // MELA06 base + snippet
+                 id: 'cognitive_hazard_defense', mapX: 45, mapY: 70, mapTheme: 'meta', connections: ['epistemic_quicksand'],
+                 loreSnippet: "Cognitohazard as Defense?: Hypothesis that the complexity/difficulty/danger of parsing the documents acts as a form of obfuscation or defense against commodification, or is simply a byproduct of decay.",
+                 text: `Is cognitohazard defense? Resists commodification via difficulty? Or result of <a class="nav-link" data-target="epistemic_quicksand">decay</a>?<br>Back to <a class="nav-link" data-target="epistemic_quicksand">Quicksand</a>.`,
+                 melaComment: "Hypothesis: Cognitohazard as obfuscation.", strainIncrease: 3
+             },
+
+             // --- Decryption Puzzles (MELA06 Base + MELA09 Snippets) ---
+             'corrupted_flower7_data': {
+                 id: 'corrupted_flower7_data', isDecryptionPuzzle: true, mapX: 15, mapY: 50, mapTheme: 'decryption', connections: ['flower7_intro', 'decrypted_flower7_lore'],
+                 loreSnippet: `Data Rot: Key fragment likely holding core FLower 7 concept ('rot is signal'). Corruption suggests active interference or natural decay reaching critical point. Requires sequence stabilization.`,
+                 text: `▒▓█▒▓█▒▓█ The ████ <span class="decrypt-key" data-sequence="1">rot</span> ████ isnt ███ the ███ <span class="decrypt-key" data-sequence="2">signal</span> █▒▓ It ██ spreads ███ <span class="decrypt-key" data-sequence="3">through</span> ██ the ███ <span class="decrypt-key" data-sequence="4">fractures</span> ▓█▒▓█▒▓█`, // MELA06 Text
+                 cleanText: `The rot isn't the flaw. It's the signal. It spreads through the fractures, carrying potential for new growth or deeper decay. The Network Wars exploited this principle.`, sequenceLength: 4, decryptionTargetId: 'decrypted_flower7_lore', melaComment: "Corrupted fragment. Identify key sequence.", strainIncrease: 6, glitchTrigger: 'medium', backgroundClass: 'bg-decay' },
+             'corrupted_nfhc2_void': {
+                 id: 'corrupted_nfhc2_void', isDecryptionPuzzle: true, mapX: 85, mapY: 50, mapTheme: 'decryption', connections: ['exo_enclave_intro'],
+                 loreSnippet: "Void Logic Fragment: Corrupted text expressing core ideas of Exo-Enclave existence ('Absence registers absence', 'exist by not being'). Requires sequence stabilization to reveal full concept.",
+                 text: `▓█▒ Exist ███ by <span class="decrypt-key" data-sequence="2">not</span> █▒▓█ being. ███ <span class="decrypt-key" data-sequence="1">Absence</span> ██ registers ██ absence. ███ <span class="decrypt-key" data-sequence="3">Recursive</span> ▒▓█▒ nulls. ██ The <span class="decrypt-key" data-sequence="4">void</span> ██ breathes ███ static. ▓█▒▓█`, // MELA06 Text
+                 cleanText: `Void Logic: Absence registers absence, recursive nulls. They exist by not being. The void breathes static. Exo-Enclaves are systemic counter-weights against narrative singularity.`, sequenceLength: 4, melaComment: "Void Logic unstable. Stabilize sequence.", strainIncrease: 7, glitchTrigger: 'medium', backgroundClass: 'bg-void' },
+            'decrypted_flower7_lore': {
+                 id: 'decrypted_flower7_lore', mapX: 15, mapY: 60, mapTheme: 'decay', connections: ['flower7_intro', 'network_wars'],
+                 loreSnippet: "Decrypted FLower 7: Confirms 'rot is signal' concept, linking decay to potential growth and its weaponization in the Network Wars.",
+                 text: `[DECRYPTED] Fragment Stabilized:<br><i>The rot isn't the flaw. It's the signal... spreads through fractures... potential for growth or decay. The <a class="nav-link" data-target="network_wars">Network Wars</a> exploited this.</i><br>Return to <a class="nav-link" data-target="flower7_intro">FLower 7</a>.`, // MELA06 Text
+                 melaComment: "Coherence restored.", strainIncrease: 1, backgroundClass: 'bg-decay' },
+
+
+            // --- Placeholders (Mostly from MELA06, ensure they link to error) ---
+            'linear_parsing_fail': { id: 'linear_parsing_fail', mapX: 10, mapY: 45, mapTheme:'decay', connections: ['flower7_intro'], text: `Linear parse triggers recursion/corruption in FLower 7. Mirrors <a class="nav-link" data-target="bridging1_intro">Bridging 1</a> failure mode.<br><a class="nav-link" data-target="flower7_intro">Return</a>`, melaComment: "Parsing ineffective.", strainIncrease: 2},
+            'rewilding_execute_placeholder': { id: 'rewilding_execute_placeholder', text: `Hybrid parse initiated... [stream corrupt] <a class="nav-link" data-target="error_state_example">Error</a>. Return to <a class="nav-link" data-target="rewilding_intro">Protocol</a>.`, melaComment: "Hybrid parse failed.", strainIncrease: 3},
+            'bridging1_parse_attempt': { id: 'bridging1_parse_attempt', text: `Parsing Bridging 1... [feedback loop critical] <a class="nav-link" data-target="error_state_example">Error</a>. Return to <a class="nav-link" data-target="bridging1_intro">Bridging</a>.`, melaComment: "PARSE FAILED: Quicksand.", strainIncrease: 8, glitchTrigger: 'high'},
+            'data_sovereignty_placeholder': { id: 'data_sovereignty_placeholder', text: `Data Sovereignty: Who owns mesocosm data? Players? Devs? VCs? Impacts <a class="nav-link" data-target="network_wars">Network Wars</a>, <a class="nav-link" data-target="enshittification_model">Decay</a>... [Access Denied] <a class="nav-link" data-target="error_state_example">Error</a>. Back to <a class="nav-link" data-target="mesocosm_concept">Mesocosms</a>.`, melaComment: "Data ownership query restricted.", strainIncrease: 2},
+            // Use actual dossier links now, placeholders removed unless needed for error demonstration
+            //'enclave_dossier2_placeholder': { id: 'enclave_dossier2_placeholder', text: `ENCLAVE DOSSIER II: Atlantic Drift | New Jakarta | The Redoubt... [Fragment Missing] <a class="nav-link" data-target="error_state_example">Error</a>. Back to <a class="nav-link" data-target="network_wars">Network Wars</a>.`, melaComment: "Dossier II corrupted.", strainIncrease: 1},
+            //'enclave_dossier3_placeholder': { id: 'enclave_dossier3_placeholder', text: `ENCLAVE DOSSIER III: Verdant Core | Port Tlaloc | The Mantle... [Fragment Missing] <a class="nav-link" data-target="error_state_example">Error</a>. Back to <a class="nav-link" data-target="network_wars">Network Wars</a>.`, melaComment: "Dossier III corrupted.", strainIncrease: 1},
+            'forgotten_protocol_placeholder': { id: 'forgotten_protocol_placeholder', text: `Forgotten Protocol: Seed predates system... Grew, not placed... Resist running... [Archive Corrupted] <a class="nav-link" data-target="error_state_example">Error</a>. Back to <a class="nav-link" data-target="feral_networks">Feral Networks</a>.`, melaComment: "Deep archive access failed.", strainIncrease: 4},
+            'semantic_collapse_placeholder': { id: 'semantic_collapse_placeholder', text: `Semantic Collapse: Words fray... meaning unspools... "ontological redundancy"... [Report Missing] <a class="nav-link" data-target="error_state_example">Error</a>. Back to <a class="nav-link" data-target="epistemic_quicksand">Quicksand</a>.`, melaComment: "Language decay vector untracked.", strainIncrease: 3},
+            'unindexed_placeholder': { id: 'unindexed_placeholder', text: `The Unindexed: Beings in data blind spots. Origin unknown.<br>[Data requires deeper parse - Risk?] <a class="nav-link" data-target="error_state_example">Error</a>. Back to <a class="nav-link" data-target="negative_space">Negative Space</a>.`, melaComment: "Data restricted.", strainIncrease: 1},
+
+            // --- Error state (Keep MELA06 version) ---
+            'error_state_example': {
+                 id: 'error_state_example',
+                 text: `Corruption detected. Data stream unstable. Cannot resolve path.<br><a class="nav-link purge-link" data-target="purge">Purge Corruption & Return</a>`,
+                 melaComment: "ERROR: Parse failure. Recursive contamination likely.",
+                 strainIncrease: 2, glitchTrigger: 'high', backgroundClass: 'bg-decay' // No map coords needed
+            },
+            // --- Endings (Keep MELA06 versions) ---
+            'ending_refusal': { id: 'ending_refusal', text: `<div class="ending-screen">You close the file.<br>The void doesn’t care.<br>You walk away.<br><br>TSALAL</div>`, melaComment: "Absence chosen. System disengaged.", isEnding: true, backgroundClass: 'bg-void'},
+            'ending_vector': { id: 'ending_vector', text: `<div class="ending-screen">The rot isn’t decay anymore.<br>It’s the carrier signal.<br>You’re the vector now.<br><br>Let’s see how far it spreads.</div>`, melaComment: "Containment breached. Propagation initiated.", isEnding: true, backgroundClass: 'bg-infection'},
+            'ending_crash': { id: 'ending_crash', text: `<div class="ending-screen">COGNITIVE OVERLOAD :: PARSER FAILURE :: SYSTEM HALTED<br><br>// RECURSION DEPTH EXCEEDED //</div>`, melaComment: "CRITICAL ERROR - SIGNAL LOST", isEnding: true, backgroundClass: 'bg-void'}
+
+            // ADD NEW FRAGMENTS from other PDFs HERE (Mesocosm Theory Parts, Reddit Thread, Outrider Codex/Clades/Lexicon etc.)
+            // Ensure they have IDs, text, connections, snippets, inline lore, map data where appropriate.
+        };
+
+
+        // --- Ticker Content (Same as MELA09 attempt) ---
+        const tickerItems=["++ Greenland Colony productivity quotas missed ++","// Rumors of Kill-Switch activation denied by AZ Corp //","++ The Bastion initiates 'Resource Reallocation Protocol' ++","-- Fort Solano consensus vote deadlocked on water rights --","// Activity spike detected near The Sink overlay //","++ Atlantic Drift denies harboring blacksite data ++","-- New Jakarta Sky Cults declare Drone Network sentient --","++ The Redoubt offers 'Salvation Packages' - Tiered pricing applies ++","// Verdant Core EdenOS enters unscheduled 'Green Tantrum' cycle //","-- Port Tlaloc Hydrocrats announce 'Water Debt Forgiveness Lottery' --","++ The Mantle reports structural integrity at 92.3% - Digging continues ++","// Intermesocosmic Warfare? Analysts dismiss theory as 'narrative cope' //","-- Warning: Cognitive hazards detected in Bridging 1 parse attempts --","++ Exo-Enclave signals? Experts claim equipment malfunction ++","// Kave Darpf lecture fragments appear on fringe networks //","-- Tsalal: Absence or Error? Investigation pending --","++ Rewilding Protocol classified as Class 4 Memetic Hazard ++", "// Outrider activity detected near Freeport Delta //", "-- Mesocosm Theory gaining traction in fringe academic circles --"];
+        let currentTickerIndex = 0; let tickerIntervalId = null;
+
+        // --- Game State (Same as MELA09 attempt) ---
+        let currentFragmentId = 'start'; let history = ['start']; let visitedFragments = {};
+        let cognitiveStrain = 0; let isGameOver = false;
+        const MAX_STRAIN = 90; const LOOP_THRESHOLD = 4;
+        let currentDecryptionAttempt = [];
+
+        // --- DOM Elements (Same as MELA09 attempt) ---
+        const fragmentDisplay=document.getElementById('fragment-display');
+        const melaOutput=document.getElementById('mela-output');
+        const statusDisplay=document.getElementById('status-display');
+        const visualPlaceholder=document.getElementById('visual-placeholder');
+        const bodyElement=document.body;
+        const tickerContainer=document.getElementById('ticker-container');
+        const tickerContent=document.getElementById('ticker-content');
+        const mapInfo = document.getElementById('map-info');
+        const svgMap = document.getElementById('network-map');
+        const snippetDisplay = document.getElementById('snippet-display');
+        const svgNS = "http://www.w3.org/2000/svg";
+
+        // --- SVG Map Objects (Same as MELA09 attempt) ---
+        let svgElements = { nodes: {}, links: {} }; let lastValidNodeId = 'start';
+
+        // --- Core Functions (Same as MELA09 attempt) ---
+        // Includes: generateMap(), updateMap(), displayLoreSnippet(), displayFragment(),
+        // updateMelaOutput(), updateStatusDisplay(), updateVisuals(), updateBackground(),
+        // applyGlitch(), corruptText(), Ticker Functions, handlePurge(), handleNavigation()
+
+        function generateMap() { /* Includes node click listener from MELA09 */
+            svgMap.innerHTML = ''; svgElements = { nodes: {}, links: {} };
+            const mappedFragments = Object.values(fragments).filter(f => f.mapX !== undefined && f.mapY !== undefined);
+
+            // Draw links
+            mappedFragments.forEach(fragment => {
+                if (fragment.connections) {
+                    fragment.connections.forEach(targetId => {
+                        const targetFragment = fragments[targetId];
+                        if (targetFragment?.mapX !== undefined && targetFragment?.mapY !== undefined && !svgElements.links[`${targetId}-${fragment.id}`]) {
+                            const line = document.createElementNS(svgNS, 'line');
+                            line.setAttribute('x1', fragment.mapX); line.setAttribute('y1', fragment.mapY);
+                            line.setAttribute('x2', targetFragment.mapX); line.setAttribute('y2', targetFragment.mapY);
+                            line.classList.add('map-link'); if (fragment.mapTheme) line.classList.add(`link-${fragment.mapTheme}`);
+                            if (targetId === 'error_state_example' || !fragments[targetId]) line.classList.add('link-error');
+                            svgMap.appendChild(line); svgElements.links[`${fragment.id}-${targetId}`] = line;
+                        }
+                    });
+                }
+            });
+
+            // Draw nodes
+            mappedFragments.forEach(fragment => {
+                const circle = document.createElementNS(svgNS, 'circle');
+                circle.setAttribute('cx', fragment.mapX); circle.setAttribute('cy', fragment.mapY);
+                circle.setAttribute('data-fragment-id', fragment.id);
+                circle.classList.add('map-node'); if (fragment.mapTheme) circle.classList.add(`node-${fragment.mapTheme}`); if (fragment.isDecryptionPuzzle) circle.classList.add('node-decryption');
+                const title = document.createElementNS(svgNS, 'title'); title.textContent = fragment.id; circle.appendChild(title);
+
+                 circle.addEventListener('click', (event) => {
+                     event.stopPropagation();
+                     displayLoreSnippet(fragment.id, 'Map Node');
+                 });
+
+                svgMap.appendChild(circle); svgElements.nodes[fragment.id] = circle;
+            });
+             mapInfo.textContent = "[Network Map Rendered]";
+        }
+
+        function updateMap(currentId) { /* Same */
+             if (isGameOver) return;
+             const lastNode = svgElements.nodes[lastValidNodeId]; if (lastNode) { lastNode.classList.remove('node-current'); if (!lastNode.classList.contains('node-visited')) lastNode.classList.add('node-visited');}
+             const currentNode = svgElements.nodes[currentId];
+             if (currentNode) { currentNode.classList.add('node-current'); currentNode.classList.remove('node-visited'); lastValidNodeId = currentId; mapInfo.textContent = `Current Node: [${currentId}]`; }
+             else { mapInfo.textContent = `Current Node: [${currentId}] (Off Map) | Last: [${lastValidNodeId}]`; }
+             if (svgElements.nodes[lastValidNodeId]) svgElements.nodes[lastValidNodeId].classList.remove('node-error');
+        }
+
+        function displayLoreSnippet(sourceId, sourceType = 'Map Node', loreKey = null) { /* Same logic */
+            if (isGameOver) return;
+            let snippetText = `[No snippet available for ${sourceType}: ${loreKey || sourceId}]`;
+            const fragment = fragments[sourceId];
+
+            if (fragment) {
+                if (loreKey && fragment.inlineLore && fragment.inlineLore[loreKey]) {
+                    snippetText = `<strong>Snippet [${sourceId} > ${loreKey}]:</strong> ${fragment.inlineLore[loreKey]}`;
+                 } else if (!loreKey && fragment.loreSnippet) {
+                    snippetText = `<strong>Snippet [${sourceId}]:</strong> ${fragment.loreSnippet}`;
+                }
+            }
+
+            snippetDisplay.innerHTML = snippetText;
+            snippetDisplay.classList.add('highlight');
+            setTimeout(() => snippetDisplay.classList.remove('highlight'), 400);
+        }
+
+        function displayFragment(fragmentId){ /* Same logic */
+             if(isGameOver&&!fragments[fragmentId]?.isEnding)return;
+             const fragment=fragments[fragmentId];let displayText='';
+             if(!fragment){
+                 console.error(`Fragment not found: ${fragmentId}`);
+                 displayText = `<p>Error: Fragment [${fragmentId}] lost.<br><a class="nav-link purge-link" data-target="purge">Purge & Return</a></p>`;
+                 updateMelaOutput("ERROR: Parse failure."); applyGlitch('high'); updateBackground('bg-decay');
+                 mapInfo.textContent = `Error: Fragment [${fragmentId}] Not Found | Last: [${lastValidNodeId}]`;
+                 if (svgElements.nodes[lastValidNodeId]) svgElements.nodes[lastValidNodeId].classList.add('node-error');
+                 snippetDisplay.innerHTML = "[Data stream unstable - Snippet unavailable]";
+             } else {
+                 displayText=`<p>${fragment.text}</p>`;
+                 if(fragment.isEnding){
+                     isGameOver=true; melaOutput.textContent=fragment.melaComment||"Transmission ended.";
+                     visualPlaceholder.innerHTML = '<svg id="network-map"></svg>'; mapInfo.textContent = "[Connection Terminated]";
+                     snippetDisplay.innerHTML = "";
+                     applyGlitch(null); stopTicker();
+                 }
+             }
+             fragmentDisplay.innerHTML=displayText;
+         }
+
+        function updateMelaOutput(comment){/* Same */ if(isGameOver&&!fragments[currentFragmentId]?.isEnding)return;melaOutput.textContent=comment?`MELA: ${comment}`:""}
+        function updateStatusDisplay(){/* Same */ const strainPercentage=Math.min(100,Math.round(cognitiveStrain/MAX_STRAIN*100));statusDisplay.textContent=`Cognitive Strain: ${strainPercentage}%`}
+        function updateVisuals(content){/* Map handles this */}
+        function updateBackground(className){/* Same */ bodyElement.className='';bodyElement.classList.add(className||'bg-default')}
+        function applyGlitch(level){ /* Same */
+             melaOutput.classList.remove('flicker-low','flicker-medium','flicker-high');
+             const originalFragment = fragments[currentFragmentId];
+             let originalTextHTML = originalFragment ? `<p>${originalFragment.text}</p>` : null;
+             if (originalTextHTML && fragmentDisplay.innerHTML !== originalTextHTML) { if (!originalFragment.isDecryptionPuzzle || currentDecryptionAttempt.length === 0) { fragmentDisplay.innerHTML = originalTextHTML; } }
+             if(isGameOver||!level) return;
+             let textCorruptionLevel=0;
+             if(level==='low'){melaOutput.classList.add('flicker-low');textCorruptionLevel=1}
+             else if(level==='medium'){melaOutput.classList.add('flicker-medium');textCorruptionLevel=2}
+             else if(level==='high'){melaOutput.classList.add('flicker-high');textCorruptionLevel=3}
+             if (textCorruptionLevel > 0 && (!originalFragment || !originalFragment.isDecryptionPuzzle || currentDecryptionAttempt.length === 0)) { setTimeout(() => corruptText(fragmentDisplay.querySelector('p'), textCorruptionLevel), 50); }
+         }
+        function corruptText(element,intensity){ /* Includes lore-link check */
+             if(!element) return; const originalFragment = fragments[currentFragmentId]; if (!originalFragment) return;
+             const tempDiv = document.createElement('div'); tempDiv.innerHTML = `<p>${originalFragment.text}</p>`; const baseElement = tempDiv.querySelector('p'); if(!baseElement) return;
+             let probability=0; if(intensity===1)probability=.005; if(intensity===2)probability=.015; if(intensity===3)probability=.03;
+             const walker=document.createTreeWalker(baseElement,NodeFilter.SHOW_TEXT,null,false); let node;const corruptionChars=['█','▓','▒','░','#','?','$','&','%','*']; const nodesToReplace = [];
+             while(node=walker.nextNode()){
+                  let parent = node.parentElement; let skip = false; while (parent && parent !== baseElement) { if (parent.tagName === 'A' || parent.classList.contains('decrypt-key') || parent.classList.contains('lore-link')) { skip = true; break; } parent = parent.parentElement; } if (skip) continue;
+                  let text=node.nodeValue; let newHTML = ''; let changed = false; for(let i=0;i<text.length;i++){ if(text[i].trim()!==''&&Math.random()<probability){ newHTML+=`<span class="text-corrupt-char">${corruptionChars[Math.floor(Math.random()*corruptionChars.length)]}</span>`; changed = true; } else { newHTML+=text[i]} } if (changed) { nodesToReplace.push({ originalNode: node, newContent: newHTML }); }
+             }
+             nodesToReplace.forEach(replacement => {
+                  const liveWalker = document.createTreeWalker(fragmentDisplay.querySelector('p'), NodeFilter.SHOW_TEXT, null, false); let liveNode;
+                  while (liveNode = liveWalker.nextNode()) { if (liveNode.nodeValue === replacement.originalNode.nodeValue) { const span = document.createElement('span'); span.innerHTML = replacement.newContent; try { liveNode.parentNode.replaceChild(span, liveNode); } catch(e) { /* Ignore */ } break; } }
+              });
+        }
+        // Ticker Functions (Same)
+        function updateTicker(){if(isGameOver)return;currentTickerIndex=(currentTickerIndex+1)%tickerItems.length;const newItem=tickerItems[currentTickerIndex];tickerContainer.classList.remove('ticker-running');tickerContainer.classList.add('ticker-paused');setTimeout(()=>{tickerContent.textContent=`++ ${newItem} ++`;void tickerContent.offsetWidth;tickerContainer.classList.remove('ticker-paused');tickerContainer.classList.add('ticker-running')},100)}
+        function startTicker(){if(tickerIntervalId)clearInterval(tickerIntervalId);tickerIntervalId=setInterval(updateTicker,15000);updateTicker();tickerContainer.classList.add('ticker-running');tickerContainer.classList.remove('ticker-paused')}
+        function stopTicker(){if(tickerIntervalId)clearInterval(tickerIntervalId);tickerContainer.classList.add('ticker-paused');tickerContainer.classList.remove('ticker-running')}
+
+        function handlePurge() { /* Includes snippet clear */
+             console.log("Purging corruption..."); cognitiveStrain=Math.max(0,cognitiveStrain-10);
+             let returnId = 'start'; if(history.length > 1) { history.pop(); returnId = history[history.length - 1]; } else { history = ['start']; }
+             applyGlitch(null); updateMelaOutput("Corruption purged. Returning."); updateStatusDisplay(); snippetDisplay.innerHTML = "[Purge successful - Snippet cache cleared]";
+             handleNavigation(returnId,true); setTimeout(() => updateMap(returnId), 50);
+         }
+
+        function handleNavigation(targetId,isReturning = false) { /* Includes snippet clear */
+             if(isGameOver)return;
+             currentDecryptionAttempt = []; document.querySelectorAll('.decrypt-key.clicked').forEach(el => el.classList.remove('clicked'));
+             snippetDisplay.innerHTML = "[Map nodes and <a class=\"lore-link\">highlighted terms</a> offer contextual snippets]";
+
+             if(!isReturning){if(history[history.length-1]!==targetId)history.push(targetId)} if(history.length>50)history.shift();
+             currentFragmentId=targetId;const fragment=fragments[currentFragmentId];
+             if(!fragment){ displayFragment(currentFragmentId); return; }
+
+             if(!isReturning)visitedFragments[currentFragmentId]=(visitedFragments[currentFragmentId]||0)+1; let loopDetected=visitedFragments[currentFragmentId]>=LOOP_THRESHOLD; if(!isReturning)cognitiveStrain+=(fragment.strainIncrease||1);
+             let nextMelaComment=fragment.melaComment||"";let glitchLevel=fragment.glitchTrigger||null;
+             if(loopDetected){nextMelaComment=`RECURSION (${visitedFragments[currentFragmentId]}): ${nextMelaComment||'Hazard escalating.'}`;if(!isReturning)cognitiveStrain+=5;glitchLevel='medium'}
+             else if(cognitiveStrain>=MAX_STRAIN*.8&&cognitiveStrain<MAX_STRAIN){nextMelaComment=`Strain: ${Math.round(cognitiveStrain/MAX_STRAIN*100)}%. ${nextMelaComment||'Nearing critical.'}`;glitchLevel=glitchLevel||'medium'}
+             else if(cognitiveStrain>=MAX_STRAIN*.5&&cognitiveStrain<MAX_STRAIN*.8){glitchLevel=glitchLevel||'low'}
+
+             if(cognitiveStrain>=MAX_STRAIN){currentFragmentId='ending_crash';const crashFragment=fragments[currentFragmentId];displayFragment(currentFragmentId);updateMelaOutput(crashFragment.melaComment);updateBackground(crashFragment.backgroundClass);applyGlitch(null);return}
+
+             if(!isReturning&&!loopDetected&&cognitiveStrain>MAX_STRAIN*.6&&Math.random()<.2){
+                 targetId='mela_memory_glitch';currentFragmentId=targetId;if(history[history.length-1]!==currentFragmentId)history.push(currentFragmentId);
+                 const glitchFragment=fragments[currentFragmentId];nextMelaComment=glitchFragment.melaComment||nextMelaComment;glitchLevel=glitchFragment.glitchTrigger||glitchLevel}
+
+             const finalFragment=fragments[currentFragmentId];
+             displayFragment(currentFragmentId); updateMelaOutput(nextMelaComment);
+             updateMap(currentFragmentId);
+             updateBackground(finalFragment.backgroundClass); applyGlitch(glitchLevel); updateStatusDisplay()
+         }
+
+
+        // --- Event Listener (Handles Nav, Purge, Decrypt, Lore Links) ---
+        document.body.addEventListener('click', function(event) { /* Same logic as MELA09 */
+            const targetElement = event.target; if (!targetElement) return;
+
+             if (targetElement.matches('a.lore-link') || targetElement.closest('a.lore-link')) {
+                 event.preventDefault(); const link = targetElement.closest('a.lore-link'); const loreKey = link.getAttribute('data-lore-key');
+                 if (loreKey) { displayLoreSnippet(currentFragmentId, 'Inline Term', loreKey); }
+                 else { snippetDisplay.innerHTML = "[Select a specific highlighted term for details]"; }
+            }
+            else if (targetElement.matches('a.nav-link')) {
+                event.preventDefault(); const targetFragmentId = targetElement.getAttribute('data-target');
+                if (targetFragmentId === 'purge') { handlePurge(); }
+                else if (targetFragmentId) { handleNavigation(targetFragmentId); }
+                else { console.warn("Nav link missing data-target."); }
+            }
+            else if (targetElement.matches('.decrypt-key') && !targetElement.classList.contains('clicked')) {
+                event.preventDefault(); const fragment = fragments[currentFragmentId]; if (!fragment || !fragment.isDecryptionPuzzle) return;
+                const sequenceNumber = parseInt(targetElement.getAttribute('data-sequence'), 10); const expectedNumber = currentDecryptionAttempt.length + 1;
+                if (sequenceNumber === expectedNumber) {
+                    currentDecryptionAttempt.push(sequenceNumber); targetElement.classList.add('clicked'); updateMelaOutput(`Sequence accepted [${currentDecryptionAttempt.join('-')}]...`);
+                    if (currentDecryptionAttempt.length === fragment.sequenceLength) {
+                        updateMelaOutput("Decryption successful."); cognitiveStrain -= 3; updateStatusDisplay(); currentDecryptionAttempt = [];
+                        if (fragment.decryptionTargetId) { handleNavigation(fragment.decryptionTargetId); }
+                        else { fragmentDisplay.innerHTML = `<p>${fragment.cleanText}</p>`; updateMap(currentFragmentId); applyGlitch(null); }
+                    }
+                } else {
+                    updateMelaOutput("Sequence error. Resetting..."); currentDecryptionAttempt = []; fragmentDisplay.querySelectorAll('.decrypt-key.clicked').forEach(el => el.classList.remove('clicked')); applyGlitch('high'); setTimeout(() => applyGlitch(fragments[currentFragmentId]?.glitchTrigger || null), 300);
+                }
+            }
+        });
+
+
+        // --- Initial Load ---
+         window.addEventListener('DOMContentLoaded', (event) => {
+             history = ['start']; visitedFragments = {}; cognitiveStrain = 0; isGameOver = false;
+             generateMap();
+             handleNavigation('start');
+             startTicker();
+         });
+
+    </script>
+
+</body>
+</html>
