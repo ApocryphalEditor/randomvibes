@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Echolocation</title>
+  <style>
+    html, body { margin: 0; overflow: hidden; background: white; }
+    canvas { display: block; position: absolute; top: 0; left: 0; }
+    #canvasTop { pointer-events: none; z-index: 2; }
+  </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<canvas id="canvasTop"></canvas>
+<script>
+const canvas = document.getElementById("canvas");
+const overlay = document.getElementById("canvasTop");
+const gl = canvas.getContext("webgl");
+const ctx2d = overlay.getContext("2d");
+
+canvas.width = overlay.width = window.innerWidth;
+canvas.height = overlay.height = window.innerHeight;
+
+let mouse = [0.5, 0.5];
+let prevMouse = [0.5, 0.5];
+let velocity = [0.0, 0.0];
+let drawMode = false;
+
+const insects = Array.from({ length: 50 }, () => ({
+  pos: [Math.random(), Math.random()],
+  alive: true,
+}));
+
+window.addEventListener('mousemove', e => {
+  let x = e.clientX / canvas.width;
+  let y = 1.0 - e.clientY / canvas.height;
+  velocity[0] = (x - mouse[0]) * 15.0; // Multiplier amplifies velocity
+  velocity[1] = (y - mouse[1]) * 15.0;
+  prevMouse[0] = mouse[0];
+  prevMouse[1] = mouse[1];
+  mouse[0] = x;
+  mouse[1] = y;
+});
+
+window.addEventListener('mousedown', () => { drawMode = true; });
+window.addEventListener('mouseup', () => { drawMode = false; });
+
+function drawInsects() {
+  ctx2d.clearRect(0, 0, overlay.width, overlay.height);
+  ctx2d.save();
+  ctx2d.fillStyle = 'black';
+
+  // Echolocation parameters - ADJUST THESE!
+  const baseRevealRadius = 0.03;    // Base reveal radius (percentage of screen)
+  const velocitySensitivity = 0.15; // HOW MUCH MOUSE SPEED AFFECTS REVEAL RADIUS (Increased from 0.008)
+                                    // This is the key parameter to tune.
+  const maxRevealBonusFromVelocity = 0.15; // Max additional radius from speed
+  const minAlpha = 0.01;  // Alpha for insects outside reveal radius
+  const maxAlpha = 1.0;  // Alpha for insects clearly revealed
+
+  // Calculate current mouse speed
+  const speed = Math.sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
+  
+  // Optional: Log speed to help with tuning velocitySensitivity
+  // Open your browser's developer console to see these logs.
+  if (Math.random() < 0.03) { // Log occasionally (e.g., roughly once per second if rendering at 30fps)
+    console.log(`Current mouse speed: ${speed.toFixed(2)}, Reveal Bonus: ${(speed * velocitySensitivity).toFixed(2)}`);
+  }
+
+  let revealBonus = Math.min(speed * velocitySensitivity, maxRevealBonusFromVelocity);
+  const currentRevealRadius = baseRevealRadius + revealBonus;
+
+  insects.forEach((insect) => {
+    if (!insect.alive) return;
+
+    insect.pos[0] += (Math.random() - 0.5) * 0.002;
+    insect.pos[1] += (Math.random() - 0.5) * 0.002;
+    insect.pos[0] = Math.max(0, Math.min(1, insect.pos[0]));
+    insect.pos[1] = Math.max(0, Math.min(1, insect.pos[1]));
+
+    const dx = insect.pos[0] - mouse[0];
+    const dy = insect.pos[1] - mouse[1];
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (drawMode && dist < 0.02) {
+      insect.alive = false;
+    }
+
+    if (!drawMode) {
+      let insectAlpha = minAlpha;
+      if (dist < currentRevealRadius) {
+        insectAlpha = maxAlpha - (dist / currentRevealRadius) * (maxAlpha - minAlpha);
+        insectAlpha = Math.max(minAlpha, Math.min(maxAlpha, insectAlpha));
+      }
+      
+      ctx2d.globalAlpha = insectAlpha;
+
+      const x = insect.pos[0] * canvas.width;
+      const y = (1.0 - insect.pos[1]) * canvas.height;
+      ctx2d.beginPath();
+      ctx2d.arc(x, y, 2, 0, Math.PI * 2);
+      ctx2d.fill();
+    }
+  });
+  ctx2d.restore();
+}
+
+const vs = `
+attribute vec2 a_position;
+void main() {
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+
+const fs = `
+precision mediump float;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+uniform vec2 u_velocity;
+uniform float u_time;
+uniform float u_brush;
+
+float rand(vec2 co) {
+  return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+}
+
+float noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  float a = rand(i);
+  float b = rand(i + vec2(1.0, 0.0));
+  float c = rand(i + vec2(0.0, 1.0));
+  float d = rand(i + vec2(1.0, 1.0));
+  vec2 u = f*f*(3.0 - 2.0*f);
+  return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / u_resolution;
+  vec2 mouse = u_mouse;
+  vec2 vel = u_velocity;
+  // vec2 delta = uv - mouse; // Original
+  // Aspect ratio correction for delta if needed for shader effects
+  vec2 aspect_ratio_correction = vec2(u_resolution.x / u_resolution.y, 1.0);
+  vec2 delta = (uv - mouse) * aspect_ratio_correction;
+
+
+  float dist = length(delta);
+  float n = noise(uv * 15.0 + u_time * 0.2);
+  
+  // Smear effect - make sure vel is also scaled by aspect ratio if delta is
+  // vec2 vel_corrected = vel * aspect_ratio_correction;
+  // float smear = dot(normalize(delta + 0.001), vel_corrected); // Avoid normalize(0,0)
+
+  // Simpler smear without explicit aspect correction in vel (can make trail thinner/wider)
+  float smear = dot(normalize(delta + 0.001), vel);
+
+  float trail = exp(-dist * 6.0) * smear * 0.6;
+  float brush = u_brush * exp(-dist * 25.0) * n;
+  float ink = trail + brush;
+  vec3 col = vec3(1.0 - ink);
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+function compile(src, type) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, src);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(shader));
+    throw new Error("Shader compile failed");
+  }
+  return shader;
+}
+
+function link(vs, fs) {
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(vs, gl.VERTEX_SHADER));
+  gl.attachShader(prog, compile(fs, gl.FRAGMENT_SHADER));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    console.error(gl.getProgramInfoLog(prog));
+    throw new Error("Program link failed");
+  }
+  return prog;
+}
+
+const program = link(vs, fs);
+const posLoc = gl.getAttribLocation(program, "a_position");
+const resLoc = gl.getUniformLocation(program, "u_resolution");
+const mouseLoc = gl.getUniformLocation(program, "u_mouse");
+const velLoc = gl.getUniformLocation(program, "u_velocity");
+const timeLoc = gl.getUniformLocation(program, "u_time");
+const brushLoc = gl.getUniformLocation(program, "u_brush");
+
+const quad = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+  -1,-1, 1,-1, -1,1,
+  -1,1, 1,-1, 1,1
+]), gl.STATIC_DRAW);
+
+function render(t) {
+  const time = t * 0.001;
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  gl.clearColor(1.0, 1.0, 1.0, 1.0); // Ensure background is white
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.useProgram(program);
+  gl.enableVertexAttribArray(posLoc);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+  gl.uniform2f(resLoc, canvas.width, canvas.height);
+  gl.uniform2f(mouseLoc, mouse[0], mouse[1]);
+  gl.uniform2f(velLoc, velocity[0], velocity[1]);
+  gl.uniform1f(timeLoc, time);
+  gl.uniform1f(brushLoc, drawMode ? 1.0 : 0.0);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+  drawInsects();
+  requestAnimationFrame(render);
+}
+
+// Initial resize and render call
+window.addEventListener('resize', () => {
+  canvas.width = overlay.width = window.innerWidth;
+  canvas.height = overlay.height = window.innerHeight;
+});
+
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
