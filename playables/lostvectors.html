@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>WebGL Cursor Light Desktop - Lost Vectors</title>
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #000;
+        cursor: none;
+        font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; /* Classy sans-serif */
+    }
+    canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        position: fixed; /* Keep canvas in background */
+        top: 0;
+        left: 0;
+        z-index: -1; /* Ensure canvas is behind other content */
+    }
+    .info-overlay {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: rgba(255, 255, 255, 0.75); /* Light color, slightly transparent */
+        font-size: 2.5vw; /* Responsive font size */
+        font-weight: 300; /* Lighter font weight */
+        text-align: center;
+        pointer-events: none; /* So it doesn't interfere with mouse on canvas if needed */
+        text-shadow: 0 0 8px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 220, 200, 0.2); /* Dark general shadow + subtle warm glow */
+        letter-spacing: 0.05em;
+        white-space: pre; /* Preserve whitespace for multi-line, was nowrap */
+    }
+
+    @media (min-width: 1200px) { /* Cap font size on larger screens */
+        .info-overlay {
+            font-size: 30px;
+        }
+    }
+     @media (max-width: 600px) { /* Adjust font size for smaller screens */
+        .info-overlay {
+            font-size: 4vw;
+        }
+    }
+
+</style>
+</head>
+<body>
+    <canvas id="glCanvas"></canvas>
+    <div class="info-overlay" id="dateTimeDisplay"></div>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec2 a_position;
+        void main() {
+            gl_Position = vec4(a_position, 0.0, 1.0);
+        }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+
+        uniform vec2 u_resolution;
+        uniform vec2 u_mouse;
+        uniform float u_time;
+
+        // --- LV: Star Uniforms (Lost Vectors) ---
+        #define MAX_VECTORS 10 // Must match JS
+        uniform vec2 u_star_positions[MAX_VECTORS];
+        uniform vec2 u_star_velocities[MAX_VECTORS];
+        uniform float u_star_states[MAX_VECTORS]; // 0: drifting, 1: attracted, 2: collected
+        uniform int u_num_stars;
+
+        // Simple 2D random function
+        float random(vec2 st) {
+            return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+        }
+
+        // 2D Noise function (Value Noise)
+        float noise(vec2 st) {
+            vec2 i = floor(st);
+            vec2 f = fract(st);
+            float a = random(i);
+            float b = random(i + vec2(1.0, 0.0));
+            float c = random(i + vec2(0.0, 1.0));
+            float d = random(i + vec2(1.0, 1.0));
+            vec2 u = f * f * (3.0 - 2.0 * f);
+            return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.y * u.x;
+        }
+
+        // SDF for a line segment (capsule)
+        // p: point to check, a: line start, b: line end, r: radius/thickness
+        float sdf_capsule(vec2 p, vec2 a, vec2 b, float r) {
+            vec2 pa = p - a, ba = b - a;
+            float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+            return length(pa - ba * h) - r;
+        }
+
+
+        void main() {
+            vec2 st = gl_FragCoord.xy / u_resolution.xy;
+            // If you uncomment the aspect ratio correction for 'st' or 'mouse' below,
+            // you should apply similar correction to u_star_positions if they appear stretched.
+            // st.x *= u_resolution.x / u_resolution.y;
+
+            vec2 mouse = u_mouse;
+            // mouse.x *= u_resolution.x / u_resolution.y;
+
+            float dist_to_cursor = distance(st, mouse);
+
+            // --- Light Effect ---
+            float lightRadius = 0.05;
+            float lightSoftness = 0.8;
+            vec3 lightColor = vec3(1.0, 0.8, 0.7);
+            float intensity = 2.0 - smoothstep(lightRadius - lightSoftness, lightRadius + lightSoftness, dist_to_cursor);
+            intensity = pow(intensity, 4.0);
+
+            // --- Background Noise ---
+            float noiseScale = 4.0;
+            float noiseIntensity = 0.08;
+            float noiseAnimSpeed = 0.5;
+            float n = noise((st + vec2(u_time * noiseAnimSpeed * 0.1, u_time * noiseAnimSpeed * 0.05)) * noiseScale);
+            n += noise((st * 0.5 + vec2(u_time * noiseAnimSpeed * -0.03, u_time * noiseAnimSpeed * 0.08)) * noiseScale * 2.0) * 0.5;
+            n *= 0.66;
+
+            // --- Base Color ---
+            vec3 baseBgColor = vec3(0.01, 0.01, 0.03);
+            vec3 finalColor = baseBgColor + (n * noiseIntensity);
+            finalColor = mix(finalColor, lightColor, intensity * 0.05);
+            float bloomDist = distance(st, mouse);
+            float bloomIntensity = smoothstep(0.6, 0.1, bloomDist) * 0.03;
+            finalColor += lightColor * bloomIntensity;
+
+            // --- LV: Star Rendering (Lost Vectors) ---
+            float STAR_SIZE = 0.02; // Thickness of streak
+            float STAR_SOFTNESS = 0.003; // Softness of the streak edges
+            float STREAK_LENGTH_SCALE = 15.0; // Multiplier for velocity to get streak length
+
+            vec3 STAR_COLOR_DRIFT = vec3(0.6, 0.7, 1.0) * 0.6; // Faint blueish
+            vec3 STAR_COLOR_ATTRACTED = vec3(0.8, 0.9, 1.0) * 0.8; // Brighter blue
+            vec3 STAR_COLOR_COLLECTED = vec3(1.0, 0.9, 0.8) * 0.9; // Warm, like the cursor light
+
+            for (int i = 0; i < MAX_VECTORS; ++i) {
+                if (i >= u_num_stars) break; // Only process active stars
+
+                vec2 star_pos = u_star_positions[i];
+                vec2 star_vel = u_star_velocities[i];
+                float star_state = u_star_states[i]; // 0: drift, 1: attract, 2: collected
+
+                // Optional: Aspect correct star_pos if st was corrected.
+                // star_pos.x *= u_resolution.x / u_resolution.y;
+
+                float speed = length(star_vel);
+                vec2 dir = vec2(0.0);
+                if (speed > 0.00001) { // Avoid normalize(0,0)
+                    dir = normalize(star_vel);
+                }
+
+                // Make streak shorter if nearly stationary or collected (and orbiting)
+                float currentStreakLength = speed * STREAK_LENGTH_SCALE;
+                if (star_state > 1.5) { // Collected
+                    currentStreakLength *= 0.3; // Shorter when orbiting
+                } else if (speed < 0.0001) {
+                    currentStreakLength = STAR_SIZE * 2.0; // Minimum length for slow/still stars to be visible dot
+                }
+
+
+                vec2 streak_start = star_pos - dir * currentStreakLength * 0.5;
+                vec2 streak_end = star_pos + dir * currentStreakLength * 0.5;
+                
+                // If speed is very low, draw as a point (using distance to star_pos)
+                float dist_to_star_center = distance(st, star_pos);
+                float star_shape_alpha;
+
+                if (speed < 0.0001 && star_state < 1.5) { // Drifting slowly or still, draw as point
+                     star_shape_alpha = 1.0 - smoothstep(STAR_SIZE, STAR_SIZE + STAR_SOFTNESS, dist_to_star_center);
+                } else { // Draw as streak
+                    float dist_to_streak_sdf = sdf_capsule(st, streak_start, streak_end, STAR_SIZE);
+                    star_shape_alpha = 1.0 - smoothstep(0.0, STAR_SOFTNESS, dist_to_streak_sdf);
+                }
+                
+
+                // Pulsing effect
+                float pulse = 0.6 + 0.4 * sin(u_time * (star_state > 1.5 ? 1.0 : 3.0) + star_pos.x * 20.0 + float(i) * 0.5);
+                star_shape_alpha *= pulse;
+
+                vec3 currentStarColor = STAR_COLOR_DRIFT;
+                if (star_state > 1.5) { // Collected (state == 2)
+                    currentStarColor = STAR_COLOR_COLLECTED;
+                } else if (star_state > 0.5) { // Attracted (state == 1)
+                    currentStarColor = STAR_COLOR_ATTRACTED;
+                }
+                
+                finalColor += currentStarColor * star_shape_alpha * 0.01; // Blend star color
+            }
+
+            gl_FragColor = vec4(finalColor, 1.0);
+        }
+    </script>
+
+    <script>
+        const canvas = document.getElementById('glCanvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        const dateTimeDisplay = document.getElementById('dateTimeDisplay');
+
+        if (!gl) {
+            alert('WebGL not supported. Please use a modern browser.');
+        } else {
+            const vsSource = document.getElementById('vertex-shader').textContent;
+            const fsSource = document.getElementById('fragment-shader').textContent;
+
+            function createShader(gl, type, source) {
+                const shader = gl.createShader(type);
+                gl.shaderSource(shader, source);
+                gl.compileShader(shader);
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    console.error('Error compiling shader:', gl.getShaderInfoLog(shader));
+                    gl.deleteShader(shader); return null;
+                }
+                return shader;
+            }
+            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+            function createProgram(gl, vs, fs) {
+                const program = gl.createProgram();
+                gl.attachShader(program, vs);
+                gl.attachShader(program, fs);
+                gl.linkProgram(program);
+                if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                    console.error('Error linking program:', gl.getProgramInfoLog(program));
+                    gl.deleteProgram(program); return null;
+                }
+                return program;
+            }
+            const shaderProgram = createProgram(gl, vertexShader, fragmentShader);
+
+            const positions = [-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1];
+            const positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+            const positionAttributeLocation = gl.getAttribLocation(shaderProgram, 'a_position');
+            gl.enableVertexAttribArray(positionAttributeLocation);
+            gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+
+            const resolutionUniformLocation = gl.getUniformLocation(shaderProgram, 'u_resolution');
+            const mouseUniformLocation = gl.getUniformLocation(shaderProgram, 'u_mouse');
+            const timeUniformLocation = gl.getUniformLocation(shaderProgram, 'u_time');
+
+            // --- LV: Star Uniform Locations ---
+            const starPositionsUniformLocation = gl.getUniformLocation(shaderProgram, 'u_star_positions');
+            const starVelocitiesUniformLocation = gl.getUniformLocation(shaderProgram, 'u_star_velocities');
+            const starStatesUniformLocation = gl.getUniformLocation(shaderProgram, 'u_star_states');
+            const numStarsUniformLocation = gl.getUniformLocation(shaderProgram, 'u_num_stars');
+
+            let currentMousePos = { x: 0.5, y: 0.5 }; // Smoothed mouse
+            let targetMouse = { x: 0.5, y: 0.5 }; // Actual mouse
+            document.addEventListener('mousemove', (event) => {
+                targetMouse.x = event.clientX / window.innerWidth;
+                targetMouse.y = 1.0 - (event.clientY / window.innerHeight); // Invert Y
+            });
+
+            // --- LV: Star Constants & Variables ---
+            const MAX_VECTORS = 10; // Must match shader
+            const STAR_DRIFT_SPEED = 0.0001; // Adjusted for deltaTime
+            const STAR_MAX_ATTRACT_SPEED = 0.002; // Adjusted for deltaTime
+            const STAR_ATTRACTION_RADIUS = 0.25; // Normalized screen coords
+            const STAR_COLLECTION_RADIUS = 0.03;
+            const STAR_ORBIT_RADIUS_BASE = 0.04;
+            const STAR_ORBIT_SPEED = 0.03; // Radians per update step
+
+            let stars = [];
+            let collectedStarsCount = 0;
+            let allStarsCollectedTime = 0; // Timestamp when all stars were collected
+
+            // --- LV: Initialize Stars ---
+            function initStars() {
+                stars = [];
+                collectedStarsCount = 0;
+                allStarsCollectedTime = 0;
+                for (let i = 0; i < MAX_VECTORS; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = STAR_DRIFT_SPEED * (0.5 + Math.random() * 0.5);
+                    stars.push({
+                        position: { x: Math.random(), y: Math.random() },
+                        velocity: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+                        originalVelocity: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+                        state: 0, // 0: drifting, 1: attracted, 2: collected
+                        attractionInfluence: 0.0,
+                        orbitAngle: Math.random() * Math.PI * 2,
+                        orbitRadius: STAR_ORBIT_RADIUS_BASE * (0.8 + Math.random() * 0.4)
+                    });
+                }
+            }
+
+            // --- LV: Update Stars ---
+            function updateStars(dt, mousePos) {
+                if (allStarsCollectedTime > 0 && (performance.now() - allStarsCollectedTime) > 5000) {
+                     initStars(); // Reset after 5 seconds
+                }
+
+                stars.forEach(star => {
+                    if (star.state === 2) { // Collected
+                        star.orbitAngle += STAR_ORBIT_SPEED * dt * 60; // dt can be small, scale up
+                        star.position.x = mousePos.x + Math.cos(star.orbitAngle) * star.orbitRadius;
+                        star.position.y = mousePos.y + Math.sin(star.orbitAngle) * star.orbitRadius;
+                        // Keep velocity low for visual effect if needed by shader
+                        star.velocity.x = -Math.sin(star.orbitAngle) * star.orbitRadius * STAR_ORBIT_SPEED * 0.1;
+                        star.velocity.y =  Math.cos(star.orbitAngle) * star.orbitRadius * STAR_ORBIT_SPEED * 0.1;
+
+                        return;
+                    }
+
+                    const dxMouse = mousePos.x - star.position.x;
+                    const dyMouse = mousePos.y - star.position.y;
+                    const distToMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
+
+                    let targetVx = star.originalVelocity.x;
+                    let targetVy = star.originalVelocity.y;
+                    let desiredState = 0; // Drifting
+
+                    if (distToMouse < STAR_COLLECTION_RADIUS && star.state !== 2) {
+                        star.state = 2; // Collected
+                        collectedStarsCount++;
+                        if (collectedStarsCount >= MAX_VECTORS) {
+                            allStarsCollectedTime = performance.now();
+                        }
+                        star.attractionInfluence = 1.0;
+                         // Set initial orbit angle relative to mouse to avoid jump
+                        star.orbitAngle = Math.atan2(dyMouse, dxMouse);
+                    } else if (distToMouse < STAR_ATTRACTION_RADIUS) {
+                        desiredState = 1; // Attracted
+                        const attractDirX = dxMouse / distToMouse;
+                        const attractDirY = dyMouse / distToMouse;
+                        const pullStrength = (1.0 - distToMouse / STAR_ATTRACTION_RADIUS);
+                        star.attractionInfluence = Math.min(1.0, star.attractionInfluence + pullStrength * 0.2 * dt * 60);
+
+                        targetVx = attractDirX * STAR_MAX_ATTRACT_SPEED;
+                        targetVy = attractDirY * STAR_MAX_ATTRACT_SPEED;
+                    } else {
+                        desiredState = 0; // Drifting
+                        star.attractionInfluence = Math.max(0.0, star.attractionInfluence - 0.05 * dt * 60);
+                    }
+                    star.state = desiredState; // Update state if not collected
+
+                    // Lerp current velocity towards target (blend original and attraction)
+                    const currentWeight = (1.0 - star.attractionInfluence);
+                    const targetWeight = star.attractionInfluence;
+                    star.velocity.x = (star.originalVelocity.x * currentWeight + targetVx * targetWeight);
+                    star.velocity.y = (star.originalVelocity.y * currentWeight + targetVy * targetWeight);
+                    
+                    // Cap speed for drifting
+                    if (star.state === 0) {
+                        const currentSpeed = Math.sqrt(star.velocity.x * star.velocity.x + star.velocity.y * star.velocity.y);
+                        const maxDriftSpeed = STAR_DRIFT_SPEED * 1.5;
+                        if (currentSpeed > maxDriftSpeed) {
+                            star.velocity.x = (star.velocity.x / currentSpeed) * maxDriftSpeed;
+                            star.velocity.y = (star.velocity.y / currentSpeed) * maxDriftSpeed;
+                        }
+                    }
+
+                    star.position.x += star.velocity.x * dt * 60; // Scale by 60 if dt is in seconds and speeds are per-frame-ish
+                    star.position.y += star.velocity.y * dt * 60;
+
+                    // Boundary checks (wrap around)
+                    if (star.position.x < -0.05) star.position.x += 1.1;
+                    if (star.position.x > 1.05) star.position.x -= 1.1;
+                    if (star.position.y < -0.05) star.position.y += 1.1;
+                    if (star.position.y > 1.05) star.position.y -= 1.1;
+                });
+            }
+
+            let lastTime = 0;
+            function render(time) {
+                time *= 0.001;  // convert time to seconds
+                const deltaTime = time - lastTime;
+                lastTime = time;
+
+                if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+                    canvas.width = canvas.clientWidth;
+                    canvas.height = canvas.clientHeight;
+                    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+                }
+
+                const lerpFactor = 0.01; // Slightly faster mouse lerp from your original 0.01
+                currentMousePos.x += (targetMouse.x - currentMousePos.x) * lerpFactor;
+                currentMousePos.y += (targetMouse.y - currentMousePos.y) * lerpFactor;
+
+                // --- LV: Update and Prepare Star Data ---
+                updateStars(deltaTime, currentMousePos);
+                let starPositionsData = [];
+                let starVelocitiesData = [];
+                let starStatesData = [];
+                stars.forEach(star => {
+                    starPositionsData.push(star.position.x, star.position.y);
+                    starVelocitiesData.push(star.velocity.x, star.velocity.y);
+                    starStatesData.push(star.state);
+                });
+
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                gl.useProgram(shaderProgram);
+                gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
+                gl.uniform2f(mouseUniformLocation, currentMousePos.x, currentMousePos.y);
+                gl.uniform1f(timeUniformLocation, time);
+
+                // --- LV: Pass Star Data to Shader ---
+                if (starPositionsUniformLocation && starVelocitiesUniformLocation && starStatesUniformLocation && numStarsUniformLocation) {
+                    gl.uniform2fv(starPositionsUniformLocation, starPositionsData);
+                    gl.uniform2fv(starVelocitiesUniformLocation, starVelocitiesData);
+                    gl.uniform1fv(starStatesUniformLocation, starStatesData);
+                    gl.uniform1i(numStarsUniformLocation, stars.length);
+                }
+
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+                requestAnimationFrame(render);
+            }
+
+            // --- LV: Initial Star Setup ---
+            initStars();
+            requestAnimationFrame(render);
+        }
+
+        // --- Date and Time Update Function ---
+        function updateDateTime() {
+            const now = new Date();
+            const day = now.getDate();
+            const month = now.getMonth() + 1;
+            let hours = now.getHours();
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'pm' : 'am';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            const sevenSpaces = '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
+            
+            // --- LV: Modified display string ---
+            let dateTimeString = `Cycle ${day}:${month}${sevenSpaces}${hours}:${minutes}${ampm}`;
+            if (typeof collectedStarsCount !== 'undefined' && typeof MAX_VECTORS !== 'undefined') {
+                 dateTimeString += `\nVectors Found: ${collectedStarsCount} / ${MAX_VECTORS}`;
+                 if (collectedStarsCount >= MAX_VECTORS) {
+                    dateTimeString += `\nAll vectors aligned. Cycle resetting soon...`;
+                 }
+            }
+
+
+            if (dateTimeDisplay) {
+                dateTimeDisplay.innerHTML = dateTimeString;
+            }
+        }
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+    </script>
+</body>
+</html>
